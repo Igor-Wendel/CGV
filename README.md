@@ -1,9 +1,7 @@
 <p align="center"><img src="docs/banner.svg" alt="CGV" width="100%"></p>
 
 <p align="center">
-
-![PHP](https://img.shields.io/badge/PHP-8-777BB4?logo=php&logoColor=white) ![MariaDB](https://img.shields.io/badge/MariaDB-11-003545?logo=mariadb&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-puro-F7DF1E?logo=javascript&logoColor=black) ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white) ![Status](https://img.shields.io/badge/status-em%20produ%C3%A7%C3%A3o-success)
-
+  <img src="https://skillicons.dev/icons?i=php,js,html,css,mysql,docker,git" alt="PHP, JavaScript, HTML, CSS, MySQL, Docker, Git">
 </p>
 
 <p align="center"><img src="docs/painel.svg" alt="Painel ilustrativo do CGV" width="100%"></p>
