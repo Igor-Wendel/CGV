@@ -6,7 +6,11 @@
 
 ## Português
 
-Sistema web para controlar a cobertura de postos de trabalho por volantes e intermitentes: quem faltou, quem está de atestado, de férias ou foi desligado, e quem cobre cada posto em cada dia. Está em uso em produção, controlando mais de 6.000 colaboradores.
+Sistema web para empresas de terceirização de serviços, que mantêm equipes alocadas em postos de trabalho dentro dos clientes e precisam garantir que nenhum posto fique descoberto.
+
+Nesses contratos, um posto sem ninguém significa serviço não prestado e desconto na fatura (glosa). Por isso, a cada falta, atestado, férias, afastamento ou desligamento, a empresa precisa enviar um volante ou um intermitente para cobrir o posto. O CGV organiza esse processo de ponta a ponta: registra a ausência, mostra quem está disponível, guarda quem cobriu cada posto em cada dia e calcula, no fechamento do mês, os dias cobertos e os não cobertos por contrato.
+
+Está em uso em produção, controlando mais de 6.000 colaboradores.
 
 > Esta é a versão de portfólio: dados, endereços e configurações da empresa foram removidos. Os dados de teste são fictícios.
 
@@ -78,7 +82,11 @@ Igor Wendel · [github.com/Igor-Wendel](https://github.com/Igor-Wendel)
 
 ## English
 
-Web system for managing workplace coverage by relief and on-call workers: who is absent, on sick leave, on vacation or terminated, and who covers each position each day. It runs in production, managing more than 6,000 employees.
+Web system for outsourcing and facility services companies, which keep staff assigned to positions at their clients' sites and must make sure no position is left uncovered.
+
+In these contracts, an empty position means service not delivered and a deduction on the invoice. So for every absence, sick leave, vacation, leave or termination, the company has to send a relief or on-call worker to cover the position. CGV handles the whole process: it records the absence, shows who is available, keeps track of who covered each position each day and calculates, at month closing, the covered and uncovered days per contract.
+
+It runs in production, managing more than 6,000 employees.
 
 > This is the portfolio version: company data, addresses and settings were removed. Test data is fictional.
 
