@@ -1,3 +1,13 @@
+<p align="center"><img src="docs/banner.svg" alt="CGV" width="100%"></p>
+
+<p align="center">
+
+![PHP](https://img.shields.io/badge/PHP-8-777BB4?logo=php&logoColor=white) ![MariaDB](https://img.shields.io/badge/MariaDB-11-003545?logo=mariadb&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-puro-F7DF1E?logo=javascript&logoColor=black) ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white) ![Status](https://img.shields.io/badge/status-em%20produ%C3%A7%C3%A3o-success)
+
+</p>
+
+<p align="center"><img src="docs/tour.gif" alt="Passeio pelas telas do CGV" width="88%"></p>
+
 # CGV · Controle Geral de Volantes
 
 🇧🇷 [Português](#português) · 🇺🇸 [English](#english)
@@ -33,6 +43,49 @@ Está em uso em produção, controlando mais de 6.000 colaboradores.
 | RH | Designa volantes, acompanha o fechamento e cancela solicitações |
 | Gestor | Acompanha os volantes e contratos liberados para ele |
 | Preposto | Abre e acompanha as solicitações dos seus postos |
+
+### Telas
+
+Capturas feitas com dados fictícios.
+
+<details>
+<summary><b>Login</b></summary>
+<br>
+<img src="docs/00-login.png" alt="Login" width="100%">
+</details>
+
+<details open>
+<summary><b>Funcionários: quem está cobrindo e onde</b></summary>
+<br>
+<img src="docs/01-funcionarios.png" alt="Funcionários: quem está cobrindo e onde" width="100%">
+</details>
+
+<details>
+<summary><b>Solicitações de cobertura</b></summary>
+<br>
+<img src="docs/02-solicitacao.png" alt="Solicitações de cobertura" width="100%">
+</details>
+
+<details>
+<summary><b>Dashboard de indicadores</b></summary>
+<br>
+<img src="docs/03-dashboard.png" alt="Dashboard de indicadores" width="100%">
+</details>
+
+### Arquitetura
+
+```mermaid
+flowchart LR
+    U([Navegador]) --> FE[Telas em HTML, CSS e JS]
+    FE --> API[API em PHP]
+    API --> DB[(MariaDB)]
+    SYNC[Rotinas agendadas] --> DB
+    ERP[(ERP Protheus)] -. leitura diária .-> SYNC
+    AD[(Active Directory)] -. login .-> API
+    SAF[[SAF]] -. férias aprovadas .-> API
+    API -. pedidos de troca .-> SAF
+    BK[Backup diário] --> DB
+```
 
 ### Integrações
 
