@@ -6,7 +6,7 @@
 
 </p>
 
-<p align="center"><img src="docs/tour.gif" alt="Passeio pelas telas do CGV" width="88%"></p>
+<p align="center"><img src="docs/painel.svg" alt="Painel ilustrativo do CGV" width="100%"></p>
 
 # CGV · Controle Geral de Volantes
 
@@ -43,34 +43,6 @@ Está em uso em produção, controlando mais de 6.000 colaboradores.
 | RH | Designa volantes, acompanha o fechamento e cancela solicitações |
 | Gestor | Acompanha os volantes e contratos liberados para ele |
 | Preposto | Abre e acompanha as solicitações dos seus postos |
-
-### Telas
-
-Capturas feitas com dados fictícios.
-
-<details>
-<summary><b>Login</b></summary>
-<br>
-<img src="docs/00-login.png" alt="Login" width="100%">
-</details>
-
-<details open>
-<summary><b>Funcionários: quem está cobrindo e onde</b></summary>
-<br>
-<img src="docs/01-funcionarios.png" alt="Funcionários: quem está cobrindo e onde" width="100%">
-</details>
-
-<details>
-<summary><b>Solicitações de cobertura</b></summary>
-<br>
-<img src="docs/02-solicitacao.png" alt="Solicitações de cobertura" width="100%">
-</details>
-
-<details>
-<summary><b>Dashboard de indicadores</b></summary>
-<br>
-<img src="docs/03-dashboard.png" alt="Dashboard de indicadores" width="100%">
-</details>
 
 ### Arquitetura
 
