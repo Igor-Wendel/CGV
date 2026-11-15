@@ -1,0 +1,85 @@
+# ============================================================
+# CGV - configuracao do servidor (Apache / LiteSpeed)
+# ============================================================
+# Cada bloco esta em <IfModule>: sem o modulo, e ignorado em vez de dar erro 500.
+
+# ------------------------------------------------------------
+# 1. COMPRESSAO
+# ------------------------------------------------------------
+# Reduz style.css e filtro.js em cerca de 75%; o servidor comprime na entrega.
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    AddOutputFilterByType DEFLATE application/javascript application/x-javascript
+    AddOutputFilterByType DEFLATE application/json image/svg+xml
+</IfModule>
+
+<IfModule mod_brotli.c>
+    AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/css
+    AddOutputFilterByType BROTLI_COMPRESS application/javascript application/json image/svg+xml
+</IfModule>
+
+# ------------------------------------------------------------
+# 2. CACHE
+# ------------------------------------------------------------
+# CSS e JS levam o hash do conteudo no endereco (?v=<hash>, de ferramentas/preparar-deploy.py),
+# entao podem ficar em cache por muito tempo. Os HTML NAO podem: eles carregam a referencia com
+# o hash novo, e em cache a atualizacao nunca chegaria.
+<IfModule mod_expires.c>
+    ExpiresActive On
+
+    ExpiresByType text/css                "access plus 1 year"
+    ExpiresByType application/javascript   "access plus 1 year"
+    ExpiresByType image/svg+xml            "access plus 1 year"
+    ExpiresByType image/png                "access plus 1 year"
+
+    ExpiresByType text/html                "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|svg|png)$">
+        Header set Cache-Control "public, max-age=31536000"
+    </FilesMatch>
+
+    <FilesMatch "\.html$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+
+    # ------------------------------------------------------------
+    # 3. CABECALHOS DE SEGURANCA
+    # ------------------------------------------------------------
+    # Nao deixa o navegador "adivinhar" tipo de arquivo (evita que um
+    # upload seja tratado como script).
+    Header set X-Content-Type-Options "nosniff"
+
+    # Impede que o sistema seja embutido em iframe de outro site
+    # (clickjacking). O CDV usa um iframe interno do proprio dominio,
+    # por isso SAMEORIGIN em vez de DENY.
+    Header set X-Frame-Options "SAMEORIGIN"
+
+    # Nao vaza a URL interna (com parametros) para sites de terceiros.
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ------------------------------------------------------------
+# 4. ARQUIVOS QUE NUNCA DEVEM SER SERVIDOS
+# ------------------------------------------------------------
+# config.php (usuario/senha do MySQL), .env (credenciais do Protheus), schema.sql e .example
+# (estrutura do banco) e docker-compose.yml/Dockerfile (infra): incluidos pelo PHP quando
+# preciso, mas nunca acessiveis por URL direta.
+<FilesMatch "^(config\.php|config\.example\.php|schema\.sql|\.gitignore|\.env|\.env\.example|docker-compose\.yml|Dockerfile)$">
+    Require all denied
+</FilesMatch>
+
+# Backups do banco e ferramentas de linha de comando nao sao conteudo web.
+RedirectMatch 404 ^/(backups|ferramentas)/
+
+# Nada de controle de versao, ferramentas locais, scripts, bibliotecas, planilhas,
+# documentacao ou logs por URL.
+RedirectMatch 404 ^/(\.git|\.worktrees|\.claude|\.superpowers|graphify-out|docs|docker|backend/scripts|backend/planilhas|backend/lib|saf-export)(/|$)
+RedirectMatch 404 (?i)\.(md|py|log|lock|yml|yaml|sql|gz|xlsx|sh|crt)$
+RedirectMatch 404 ^/\.(dockerignore|gitattributes|gitlab-ci\.yml|cloudflared)
+# saf-export/: volume do SAF montado no servidor; cobertura.json tem dado de colaborador e so o
+# PHP le, nunca por URL.
+
+# Nao listar o conteudo de pastas sem index
+Options -Indexes

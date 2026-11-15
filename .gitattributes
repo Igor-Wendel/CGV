@@ -1,0 +1,3 @@
+# Scripts de shell rodam em container Linux: com core.autocrlf=true no Windows viriam com
+# CRLF e o "sh" quebraria ("set: Illegal option -").
+*.sh text eol=lf

@@ -1,0 +1,62 @@
+# ============================================================
+# Credenciais reais: so o config.php entra aqui (usuario e senha do MySQL). Use o arquivo
+# .example como modelo, preencha localmente e nunca comite o arquivo real.
+# O hostinger-storage.js NAO e ignorado: so tem a URL publica da API.
+# ============================================================
+backend/api/config.php
+backend/api/config.local.php
+
+# ============================================================
+# Dumps do banco (ferramentas/backup-banco.php ou manuais). JAMAIS versionar: trazem todos
+# os dados de folha e os hashes de senha.
+# ============================================================
+backups/
+*.sql.gz
+banco_temporario.sql
+
+# ============================================================
+# Sistema operacional
+# ============================================================
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ============================================================
+# Editores / IDEs
+# ============================================================
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# ============================================================
+# Workspaces isolados (git worktree) usados durante desenvolvimento -
+# nunca fazem parte do conteudo versionado do projeto.
+# ============================================================
+.worktrees/
+
+# ============================================================
+# Arquivos temporarios / backup
+# ============================================================
+*.bak
+*.tmp
+*~
+*.log
+*.lock
+
+# ============================================================
+# Credenciais do Protheus (acesso direto ao SQL Server) - mesmo principio
+# do config.php acima: nunca versionar o arquivo com valores reais, so o
+# .env.example.
+# ============================================================
+.env
+
+# ============================================================
+# Ferramentas locais de desenvolvimento (assistente, grafo do codigo,
+# tunel cloudflared) - nunca fazem parte do projeto publicado.
+# ============================================================
+graphify-out/
+.claude/
+CLAUDE.md
+.superpowers/
+.cloudflared_tunnel.log

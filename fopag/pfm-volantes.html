@@ -1,0 +1,171 @@
+<!DOCTYPE html> 
+<html lang="pt-br"> 
+<head>
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    
+    <title>PFM - Volantes — CGV</title>
+    
+    <link rel="stylesheet" href="../frontend/style.css?v=b3668feb">
+    <link rel="icon" type="image/png" sizes="96x96" href="../frontend/img/favicon.png">
+
+    <script src="../backend/filtro.js?v=fab90393"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="../backend/hostinger-storage.js?v=2803bcf0"></script>
+    <script>
+        // So RH usa FOPAG; isto so evita que quem entra direto pela URL veja a tela montada por um instante (mesmo espirito da guarda em usuarios.html).
+        if (window.self === window.top && (typeof souRH !== 'function' || !souRH())) {
+            window.location.href = '../colaboradores/funcionarios.html';
+        }
+    </script>
+
+</head>
+<body class="pagina-pfm">
+
+    <nav class="hotbar">
+        <div class="hotbar-nav">
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-colab')">COLABORADORES</button>
+            <div class="hotbar-dropdown-content" id="drop-colab">
+                <a href="../colaboradores/funcionarios.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2"/><path d="M5.8 15.5c.5-1.6 1.6-2.4 2.7-2.4s2.2.8 2.7 2.4"/><path d="M13.5 9.5h5M13.5 13h5"/></svg><div class="item-textos"><b>Funcionarios</b><span class="item-desc">Colaboradores da minha gestao</span></div></a>
+                <a href="../coberturas/dashboard.html" class="item-premium" id="item-dashboard-gestor" style="display:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.3"/></svg><div class="item-textos"><b>Dashboard</b><span class="item-desc">Indicadores e visao geral da equipe</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" id="item-localizacao-ponto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.7 7-12.2A7 7 0 1 0 5 8.8C5 14.3 12 21 12 21Z"/><circle cx="12" cy="8.7" r="2.4"/></svg><div class="item-textos"><b>Localizacao - Ponto</b><span class="item-desc">Local e ponto do colaborador</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-cob')">COBERTURAS</button>
+            <div class="hotbar-dropdown-content" id="drop-cob">
+                <a href="../coberturas/solicitacao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4"/><path d="M9.3 12.2h5.4M9.3 15.6h5.4M9.3 8.8h2"/></svg><div class="item-textos"><b>Solicitacoes</b><span class="item-desc">Pedidos de cobertura</span></div></a>
+                <a href="../coberturas/previsao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 6h6v6"/></svg><div class="item-textos"><b>Previsao</b><span class="item-desc">Projecao e historico de cobertura de ferias</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" onclick="abrirModalNotificacao()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2a5 5 0 0 0-5 5v3.3c0 .9-.35 1.75-1 2.4l-.8.8h13.6l-.8-.8c-.65-.65-1-1.5-1-2.4V8.2a5 5 0 0 0-5-5Z"/><path d="M9.6 18.2a2.4 2.4 0 0 0 4.8 0"/></svg><div class="item-textos"><b>Notificacao</b><span class="item-desc">Avisar responsavel</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn active" onclick="toggleHotbarDropdown(event, 'drop-fopag')">FOPAG</button>
+            <div class="hotbar-dropdown-content" id="drop-fopag">
+                <a href="../fopag/pfm-volantes.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Volantes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+                <a href="../fopag/pfm-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+            </div>
+        </div>
+        
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-ben')">BENEFICIOS</button>
+            <div class="hotbar-dropdown-content" id="drop-ben">
+                <a href="../beneficios/bene-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 2.8v4M16 2.8v4"/><path d="M3.5 9.8h17"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Beneficios do intermitente</span></div></a>            </div>
+        </div>
+        </div>
+        <div class="hotbar-util">
+            <button class="btn-sino" onclick="toggleNotificacoes()">
+                🔔
+                <div class="badge-notificacao" id="badge-sino" style="display: none;">0</div>
+            </button>
+        </div>
+    </nav>
+
+    <div class="conteudo-principal">
+
+        <div class="fopag-toolbar">
+            <div class="fopag-indicadores">
+                <button type="button" class="fopag-indicador pericul ativo" id="stat-fopag-pericul"
+                        onclick="alternarAba(this, 'PERICULOSIDADE')"
+                        title="Pagamentos de periculosidade">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 21 19.5H3z"/><path d="M12 9.8v4"/><circle cx="12" cy="16.6" r="0.6" fill="currentColor" stroke="none"/></svg>
+                    <span class="fopag-indicador-textos">
+                        <span class="fopag-indicador-num" id="stat-fopag-pericul-num">0</span>
+                        <span class="fopag-indicador-lbl">Periculosidade</span>
+                    </span>
+                </button>
+                <button type="button" class="fopag-indicador insalub" id="stat-fopag-insalub"
+                        onclick="alternarAba(this, 'INSALUBRIDADE')"
+                        title="Pagamentos de insalubridade">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 19 6v5.3c0 5-3 8.2-7 9.5-4-1.3-7-4.5-7-9.5V6Z"/><path d="M9 12l2 2 4-4.3"/></svg>
+                    <span class="fopag-indicador-textos">
+                        <span class="fopag-indicador-num" id="stat-fopag-insalub-num">0</span>
+                        <span class="fopag-indicador-lbl">Insalubridade</span>
+                    </span>
+                </button>
+                <button type="button" class="fopag-indicador difsal" id="stat-fopag-difsal"
+                        onclick="alternarAba(this, 'DIF_SALARIO')"
+                        title="Diferenca de salario">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.3 15c0 1.1 1.1 2 2.7 2s2.7-.9 2.7-2c0-1.2-1.1-1.7-2.7-2.1-1.6-.4-2.7-.9-2.7-2.1 0-1.1 1.1-2 2.7-2s2.7.9 2.7 2"/><path d="M12 6.7v1M12 16.3v1"/></svg>
+                    <span class="fopag-indicador-textos">
+                        <span class="fopag-indicador-num" id="stat-fopag-difsal-num">0</span>
+                        <span class="fopag-indicador-lbl">Dif. Salario</span>
+                    </span>
+                </button>
+            </div>
+
+            <div class="fopag-acoes">
+                <div class="toolbar-flutuante" id="toolbar-flutuante-pfm" style="display:none; margin-left:0;">
+                    <button type="button" class="toolbar-filtros-ativos" id="toolbar-filtros-ativos" onclick="resetarFiltros()" title="Limpar filtros">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M8 5V3.5h8V5M6 5l1 15a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-15"/><path d="M4 19L19 4"/></svg>
+                        <span id="toolbar-filtros-ativos-texto">0 filtros ativos</span>
+                        <span class="toolbar-filtros-x">✕</span>
+                    </button>
+                </div>
+                <div class="fopag-mes-container">
+                    <button type="button" class="fopag-mes-pill" id="fopag-mes-btn" onclick="alternarDropdownMesFopag(event)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 2.8v4M16 2.8v4"/><path d="M3.5 9.8h17"/></svg>
+                        <span id="fopag-mes-label"></span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l5 5 5-5"/></svg>
+                    </button>
+                    <div class="fopag-mes-dropdown" id="fopag-mes-dropdown"></div>
+                </div>
+                <button type="button" class="btn-exportar-fopag" onclick="exportarPlanilhaExcel()" title="Exportar planilha com os calculos atuais">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7.5 11.5 12 16l4.5-4.5"/><path d="M5 19.5h14"/></svg>
+                    Exportar planilha
+                </button>
+            </div>
+        </div>
+
+        <div class="tabela-visualizacao tabela-refinada">
+            <div class="tabela-cabecalho-fixo">
+                <table>
+                    <thead>
+                        <tr id="table-header-pfm">
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="tabela-corpo-rolavel">
+                <table id="minha-tabela">
+                    <tbody id="tbody-dados-pfm">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 60px; color: #888;">
+                                Nenhum dado carregado ainda.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="painel-notificacoes" id="painel-notificacoes">
+        <div class="painel-header">
+            <h3>ALERTAS</h3>
+        </div>
+        <div class="lista-notificacoes" id="lista-notificacoes">
+            <div class="notificacao-vazia">Nenhum alerta.</div>
+        </div>
+    </div>
+
+    <div id="modal-salario-minimo" class="modal-notificacao-cobertura" onclick="fecharModalSalarioMinimo()">
+        <div class="modal-salario-minimo-content" onclick="event.stopPropagation()">
+            <h3>Salário mínimo vigente</h3>
+            <p>Usado para calcular a insalubridade do período selecionado.</p>
+            <input type="number" id="input-salario-minimo" step="0.01" min="0" placeholder="Ex: 1518.00">
+            <div class="modal-salario-minimo-acoes">
+                <button type="button" class="btn-salario-minimo-cancelar" onclick="fecharModalSalarioMinimo()">Cancelar</button>
+                <button type="button" class="btn-salario-minimo-confirmar" onclick="confirmarSalarioMinimo()">Calcular</button>
+            </div>
+        </div>
+    </div>
+
+    <script>const TIPO_PFM = 'volante'; // unica diferenca de logica entre as 2 paginas de PFM - o resto vive em pfm.js</script>
+    <script src="pfm.js?v=2a99156a"></script>
+</body>
+</html>

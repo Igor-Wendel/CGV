@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="96x96" href="frontend/img/favicon.png">
+    <link rel="stylesheet" href="frontend/style.css?v=b3668feb">
+    <title>Login — CGV</title>
+
+    <script src="backend/hostinger-storage.js?v=2803bcf0"></script>
+
+</head>
+<body class="pagina-index">
+
+    <div class="login-tela" id="tela-login">
+
+        <!-- ===================== PAINEL ESQUERDO (marca) ===================== -->
+        <section class="login-vitrine">
+
+            <div class="login-grade" aria-hidden="true"></div>
+
+            <!-- Formas angulares da identidade visual (rodape de todas as
+                 paginas do manual) -->
+            <div class="login-montanhas" aria-hidden="true">
+                <span class="montanha montanha-a"></span>
+                <span class="montanha montanha-b"></span>
+                <span class="montanha montanha-c"></span>
+            </div>
+
+            <!-- Versao padrao da marca sobre placa clara: e a aplicacao que o
+                 manual determina para fundo escuro ("Aplicacao em fundos") -->
+            <header class="vitrine-topo">
+                <div class="login-marca">
+                </div>
+                <div class="marca-texto">
+                    <span class="marca-nome">Sua Empresa</span>
+                    <span class="marca-desc">Gestão de contratos e equipes</span>
+                </div>
+            </header>
+
+            <div class="vitrine-centro">
+                <div class="vitrine-titulo">
+                    <span class="sigla">CGV</span>
+                    <span class="sigla-risco" aria-hidden="true"></span>
+                    <span class="sigla-extenso">Controle Geral<br>de Volantes</span>
+                </div>
+
+                <p class="vitrine-texto">
+                    Gestão de feristas e gestão de cobertura de ausências: escala,
+                    alocação por contrato e histórico completo em um único painel.
+                </p>
+
+                <div class="vitrine-tags">
+                    <span class="tag">Coberturas</span>
+                    <span class="tag">Solicitações</span>
+                    <span class="tag">Escala de feristas</span>
+                </div>
+            </div>
+
+            <footer class="vitrine-rodape">© 2026 SUA EMPRESA · USO INTERNO</footer>
+        </section>
+
+        <!-- ===================== PAINEL DIREITO (formulario) ===================== -->
+        <section class="login-forma">
+            <div class="forma-caixa">
+
+                <div class="forma-cabecalho">
+                    <h1>Acessar o painel</h1>
+                    <p>Seja bem-vindo. Informe suas credenciais de login.</p>
+                </div>
+
+                <label class="campo-rotulo" for="usuario">Usuário</label>
+                <div class="campo-login">
+                    <svg class="campo-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="8" r="4"></circle>
+                        <path d="M4.5 20c1.2-4 4-6 7.5-6s6.3 2 7.5 6"></path>
+                    </svg>
+                    <input type="text" id="usuario" placeholder="nome.sobrenome" autocomplete="username"
+                           onkeydown="if (event.key === 'Enter') validarAcesso()">
+                </div>
+
+                <label class="campo-rotulo" for="senha">Senha</label>
+                <div class="campo-login">
+                    <svg class="campo-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="4.5" y="10.5" width="15" height="10" rx="2.5"></rect>
+                        <path d="M8.5 10.5V8a3.5 3.5 0 017 0v2.5"></path>
+                    </svg>
+                    <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password"
+                           onkeydown="if (event.key === 'Enter') validarAcesso()">
+
+                    <button type="button" class="btn-olho" id="btn-olho" onclick="alternarVisibilidadeSenha()"
+                            aria-label="Mostrar senha" title="Mostrar senha">
+                        <!-- Olho cortado = senha escondida (estado inicial) -->
+                        <svg id="olho-fechado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 3l18 18"></path>
+                            <path d="M10.6 5.2A9.3 9.3 0 0 1 12 5c5 0 9 4.5 9 7 0 1.1-.8 2.5-2.1 3.8"></path>
+                            <path d="M6.5 6.7C4.1 8.3 3 10.4 3 12c0 2.5 4 7 9 7 1.6 0 3.1-.5 4.4-1.2"></path>
+                            <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path>
+                        </svg>
+                        <!-- Olho aberto = senha visivel -->
+                        <svg id="olho-aberto" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+
+                <button class="btn-entrar" id="btn-login" onclick="validarAcesso()">Entrar</button>
+                <p id="erro-msg"></p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Alterna entre esconder e mostrar a senha digitada (icone de olho
+        // dentro do proprio campo).
+        function alternarVisibilidadeSenha() {
+            const campo = document.getElementById('senha');
+            const botao = document.getElementById('btn-olho');
+            const vaiMostrar = campo.type === 'password';
+
+            campo.type = vaiMostrar ? 'text' : 'password';
+            document.getElementById('olho-aberto').style.display = vaiMostrar ? 'block' : 'none';
+            document.getElementById('olho-fechado').style.display = vaiMostrar ? 'none' : 'block';
+
+            const rotulo = vaiMostrar ? 'Ocultar senha' : 'Mostrar senha';
+            botao.setAttribute('aria-label', rotulo);
+            botao.setAttribute('title', rotulo);
+        }
+
+        async function validarAcesso() {
+            const userInp = document.getElementById('usuario').value.trim();
+            const passInp = document.getElementById('senha').value.trim();
+            const erroMsg = document.getElementById('erro-msg');
+            const btn = document.getElementById('btn-login');
+
+            erroMsg.style.display = "none";
+            btn.innerText = "VERIFICANDO...";
+            btn.disabled = true;
+
+            try {
+                const resultado = await dbLogin(userInp, passInp);
+                if (!resultado.success) throw new Error(resultado.error || "Usuario ou senha invalidos!");
+                // "Sucesso" sem token nao pode virar login: gravaria sessao vazia e a proxima pagina devolveria o usuario pra ca.
+                if (!resultado.token) throw new Error("Nao foi possivel concluir o login. Tente novamente.");
+
+                localStorage.setItem('sessionToken', resultado.token);
+                localStorage.setItem('logado', 'true');
+
+                // RH e Gestor entram do mesmo jeito e caem em Colaboradores (Gerenciar Usuarios, so RH, fica no icone ao lado do sino; ver backend/filtro.js e usuarios.html).
+                window.location.href = "colaboradores/funcionarios.html";
+
+            } catch (err) {
+                console.error("Erro:", err);
+                // Mostra o motivo real (senha errada, usuario ja logado em outro lugar, falha de servidor) em vez de um texto fixo.
+                erroMsg.textContent = err.message || "Usuario ou senha invalidos!";
+                erroMsg.style.display = "block";
+                document.getElementById('senha').value = "";
+            } finally {
+                btn.innerText = "ENTRAR";
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

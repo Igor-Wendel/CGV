@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="96x96" href="../frontend/img/favicon.png">
+    <link rel="stylesheet" href="../frontend/style.css?v=b3668feb">
+
+    <title>Previsão — CGV</title>
+
+    <script src="../backend/filtro.js?v=fab90393"></script>
+    <script src="../backend/hostinger-storage.js?v=2803bcf0"></script>
+    <script>
+        // Mesmo guarda de coberturas/dashboard.html (RH, Gestor e Preposto).
+        if (window.self === window.top && (typeof souGestor !== 'function' || typeof souRH !== 'function' || typeof souPreposto !== 'function' || (!souGestor() && !souRH() && !souPreposto()))) {
+            window.location.href = '../colaboradores/funcionarios.html';
+        }
+    </script>
+
+    <style>
+        /* As larguras por coluna do style.css sao da tela de Funcionarios; aqui vale o colgroup. */
+        #container-com-cobertura .tabela-cabecalho-fixo th, #container-com-cobertura .tabela-corpo-rolavel td,
+        #container-sem-cobertura .tabela-cabecalho-fixo th, #container-sem-cobertura .tabela-corpo-rolavel td,
+        #container-ociosos .tabela-cabecalho-fixo th, #container-ociosos .tabela-corpo-rolavel td { width: auto; }
+        /* Texto a esquerda; so matricula e datas centralizadas (mesmo padrao das outras tabelas). */
+        #container-com-cobertura .tabela-corpo-rolavel td, #container-sem-cobertura .tabela-corpo-rolavel td,
+        #container-ociosos .tabela-corpo-rolavel td { text-align: left; }
+        #container-com-cobertura .tabela-corpo-rolavel td:is(:nth-child(2), :nth-child(5), :nth-child(6), :nth-child(9)),
+        #container-sem-cobertura .tabela-corpo-rolavel td:is(:nth-child(2), :nth-child(5), :nth-child(6)),
+        #container-ociosos .tabela-corpo-rolavel td:is(:nth-child(2), :nth-child(5), :nth-child(6)) { text-align: center; }
+        th:is([data-filtro="com_mat"], [data-filtro="com_inicio"], [data-filtro="com_fim"], [data-filtro="com_vol_mat"],
+              [data-filtro="sem_mat"], [data-filtro="sem_inicio"], [data-filtro="sem_fim"], [data-filtro="oc_mat"],
+              [data-filtro="oc_inicio"], [data-filtro="oc_fim"]) { text-align: center; }
+        /* Painel de alterar cobertura: interruptor igual ao COB x CTR das notificacoes, busca igual ao Adicionar Colaborador. */
+        #modal-cobertura-ferias .switch-container { margin-left: 0; }
+        #modal-cobertura-ferias .switch input:disabled + .slider { opacity: .5; cursor: not-allowed; }
+        /* "FERIAS" numa linha e o resto na de baixo, sem quebrar: o quadrado cresce na largura. */
+        #stat-com-cobertura, #stat-sem-cobertura { width: auto; min-width: 96px; padding: 0 12px; white-space: nowrap; }
+        #mcf-whats { padding: 0 6px; background: none; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center;
+            color: var(--dt-text-muted, #6b6b6b); }
+        #mcf-whats:hover, #mcf-whats:focus-visible { color: var(--dt-text, #000); }
+        #mcf-whats svg { width: 24px; height: 24px; }
+        #mcf-whats-menu { display: none; position: absolute; bottom: calc(100% + 6px); left: 0; background: var(--dt-surface, #fff);
+            border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.18); overflow: hidden; z-index: 5; }
+        #mcf-whats-menu.mostrando { display: block; }
+        /* Pessoa nas listas do painel (Quem cobre e Transferencia): CONTRATO | CODIGO | MATRICULA | NOME | FUNCAO numa linha; nome do
+           contrato, do colaborador e funcao longos cortam com "..." (o completo fica no title da linha). */
+        .linha-colab { display: grid; grid-template-columns: minmax(0, 1.3fr) 64px 58px minmax(0, 1.7fr) minmax(0, 1fr); gap: 8px; align-items: baseline; }
+        .linha-colab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .linha-colab .lc-mat { font-weight: 700; }
+        .linha-colab .lc-codigo, .linha-colab .lc-funcao { opacity: .75; font-size: 11.5px; }
+        /* Tela estreita (celular): a linha quebra em duas - contrato, codigo e matricula; embaixo nome (a coluna maior) e funcao. */
+        @media (max-width: 700px) {
+            .linha-colab { grid-template-columns: minmax(0, 1fr) 64px 58px; row-gap: 2px; }
+            .linha-colab span:nth-child(4) { grid-column: 1 / 3; }
+            .linha-colab .lc-funcao { grid-column: 3; }
+        }
+        #modal-notificacao-cobertura { z-index: 10001; } /* "Para o contrato" abre a Notificacao por cima do painel de ferias */
+        #mcf-whats-menu button { all: unset; display: block; width: 100%; box-sizing: border-box; padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        #mcf-whats-menu button:hover, #mcf-whats-menu button:focus-visible { background: rgba(37, 211, 102, .15); }
+        /* Nota da aba Volantes Ociosos (e a do Preposto na aba Precisa de Cobertura): icone na linha com nota, linha marcada na multi selecao, menu do botao direito e barra da selecao. */
+        .nota-ocioso-icone { width: 13px; height: 13px; margin-right: 5px; vertical-align: -2px; color: #d39e00; }
+        #table-body-ociosos.multi-selecao tr[data-mat], #table-body-com-cobertura.multi-selecao tr[data-nota] { cursor: pointer; }
+        #table-body-ociosos tr.nota-selecionada td, #table-body-com-cobertura tr.nota-selecionada td { background-color: rgba(0, 111, 115, .22) !important; } /* !important: vence o "tr:hover td" geral */
+        #menu-nota-ociosos { display: none; position: fixed; z-index: 10002; min-width: 200px; background: var(--dt-surface, #fff);
+            border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.18); overflow: hidden; }
+        #menu-nota-ociosos button { all: unset; display: block; width: 100%; box-sizing: border-box; padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        #menu-nota-ociosos button:hover, #menu-nota-ociosos button:focus-visible { background: rgba(0, 111, 115, .14); }
+        #barra-nota-ociosos { display: none; position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 10000; align-items: center;
+            gap: 12px; padding: 10px 16px; background: var(--dt-surface, #fff); border-radius: 10px; box-shadow: 0 6px 18px rgba(0,0,0,.22); font-size: 13px; }
+        #barra-nota-ociosos button { padding: 9px 16px; }
+        #mno-quem { color: #555; }
+        #mno-aviso { color: #8a5a00; }
+        /* Tema escuro: texto branco no menu, na barra e no painel da nota (pedido do usuario, 2026-11-09), como os botoes do SAF. */
+        [data-tema="escuro"] #menu-nota-ociosos, [data-tema="escuro"] #barra-nota-ociosos, [data-tema="escuro"] #mno-quem { color: #fff; }
+        [data-tema="escuro"] #mno-aviso { color: #f2c94c; }
+        /* Troca de quem cobre: o periodo de cada um ao lado do nome, um embaixo do outro (aba Com Cobertura), e quem cobriu antes no painel. */
+        .periodo-quem-cobre { opacity: .7; font-size: 11.5px; white-space: nowrap; }
+        #mcf-historico { color: #555; font-size: 13px; }
+        [data-tema="escuro"] #mcf-historico { color: #ccc; }
+        /* Historico de observacao (botao direito em Volantes Ociosos): seletor de mes igual ao da Previsao, dias ociosos e nota do mes. */
+        #modal-historico-ociosos .modal-header { gap: 12px; }
+        #mho-quem { font-size: 13px; color: #555; margin-top: 4px; }
+        .mho-rotulo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: #8a97a0; margin-bottom: 4px; }
+        .mho-texto { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .mho-vazio { font-size: 14px; color: #999; }
+        [data-tema="escuro"] #mho-quem, [data-tema="escuro"] .mho-texto { color: #fff; }
+    </style>
+</head>
+
+<body>
+
+    <nav class="hotbar">
+        <div class="hotbar-nav">
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-colab')">COLABORADORES</button>
+            <div class="hotbar-dropdown-content" id="drop-colab">
+                <a href="../colaboradores/funcionarios.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2"/><path d="M5.8 15.5c.5-1.6 1.6-2.4 2.7-2.4s2.2.8 2.7 2.4"/><path d="M13.5 9.5h5M13.5 13h5"/></svg><div class="item-textos"><b>Funcionarios</b><span class="item-desc">Colaboradores da minha gestao</span></div></a>
+                <a href="dashboard.html" class="item-premium" id="item-dashboard-preposto" style="display:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.3"/></svg><div class="item-textos"><b>Dashboard</b><span class="item-desc">Indicadores e visao geral da equipe</span></div></a>
+                <a href="dashboard.html" class="item-premium" id="item-dashboard-gestor" style="display:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.3"/></svg><div class="item-textos"><b>Dashboard</b><span class="item-desc">Indicadores e visao geral da equipe</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" id="item-localizacao-ponto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.7 7-12.2A7 7 0 1 0 5 8.8C5 14.3 12 21 12 21Z"/><circle cx="12" cy="8.7" r="2.4"/></svg><div class="item-textos"><b>Localizacao - Ponto</b><span class="item-desc">Local e ponto do colaborador</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn active" onclick="toggleHotbarDropdown(event, 'drop-cob')">COBERTURAS</button>
+            <div class="hotbar-dropdown-content" id="drop-cob">
+                <a href="../coberturas/solicitacao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4"/><path d="M9.3 12.2h5.4M9.3 15.6h5.4M9.3 8.8h2"/></svg><div class="item-textos"><b>Solicitacoes</b><span class="item-desc">Pedidos de cobertura</span></div></a>
+                <a href="../coberturas/previsao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 6h6v6"/></svg><div class="item-textos"><b>Previsao</b><span class="item-desc">Projecao e historico de cobertura de ferias</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" onclick="abrirModalNotificacao()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2a5 5 0 0 0-5 5v3.3c0 .9-.35 1.75-1 2.4l-.8.8h13.6l-.8-.8c-.65-.65-1-1.5-1-2.4V8.2a5 5 0 0 0-5-5Z"/><path d="M9.6 18.2a2.4 2.4 0 0 0 4.8 0"/></svg><div class="item-textos"><b>Notificacao</b><span class="item-desc">Avisar responsavel</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-fopag')">FOPAG</button>
+            <div class="hotbar-dropdown-content" id="drop-fopag">
+                <a href="../fopag/pfm-volantes.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Volantes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+                <a href="../fopag/pfm-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-ben')">BENEFICIOS</button>
+            <div class="hotbar-dropdown-content" id="drop-ben">
+                <a href="../beneficios/bene-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 2.8v4M16 2.8v4"/><path d="M3.5 9.8h17"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Beneficios do intermitente</span></div></a>
+            </div>
+        </div>
+        </div>
+        <div class="hotbar-util">
+            <button class="btn-sino" onclick="toggleNotificacoes()">
+                🔔<div class="badge-notificacao" id="badge-sino" style="display: none;">0</div>
+            </button>
+        </div>
+    </nav>
+
+    <div class="painel-notificacoes" id="painel-notificacoes">
+        <div class="painel-header">
+            <h3>Alertas</h3>
+        </div>
+        <div class="lista-notificacoes" id="lista-notificacoes">
+            <div class="notificacao-vazia">Nenhum alerta.</div>
+        </div>
+    </div>
+
+    <div class="conteudo-principal">
+
+        <!-- Contadores Com/Sem Cobertura + seletor de mes. Sao duas tabelas que se alternam ao clicar (mesma logica de Abertas/Fechadas de coberturas/solicitacao.html). -->
+        <div class="controles-superiores">
+
+            <div class="solic-stats">
+                <button type="button" class="solic-stat fechadas ativo" id="stat-com-cobertura"
+                        onclick="alternarAbaPrevisao('com')"
+                        title="Ferias que precisam de cobertura, e as ferias dos proprios volantes, pelo mes de inicio">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.2l2.3 2.3 4.7-4.9"/></svg>
+                    <span class="solic-stat-num" id="stat-com-cobertura-num">-</span>
+                    <span class="solic-stat-lbl">Férias<br>Precisa de Cobertura</span>
+                </button>
+                <button type="button" class="solic-stat abertas" id="stat-sem-cobertura"
+                        onclick="alternarAbaPrevisao('sem')"
+                        title="Ferias aprovadas que nao precisam de cobertura, pelo mes de inicio">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+                    <span class="solic-stat-num" id="stat-sem-cobertura-num">-</span>
+                    <span class="solic-stat-lbl">Férias<br>Não Precisa de Cobertura</span>
+                </button>
+                <button type="button" class="solic-stat nova" id="stat-ociosos"
+                        onclick="alternarAbaPrevisao('oc')"
+                        title="Volantes com dias livres no mês, de hoje em diante">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20c.6-3.6 3.2-5.5 6.5-5.5 1.4 0 2.6.3 3.6 1"/><path d="M16 15h5l-5 5h5"/></svg>
+                    <span class="solic-stat-num" id="stat-ociosos-num">-</span>
+                    <span class="solic-stat-lbl">Volantes Ociosos</span>
+                </button>
+            </div>
+
+            <!-- Seletor de periodo igual ao do PFM (pilula + dropdown ano/mes). Sem mes pre-selecionado: so busca dado depois que o usuario escolhe um. -->
+            <div class="toolbar-flutuante" id="toolbar-flutuante-previsao" style="display:none; margin-left:0;">
+                    <button type="button" class="toolbar-filtros-ativos" id="toolbar-filtros-ativos" onclick="limparFiltrosAbaPrevisao()" title="Limpar os filtros desta tabela">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M8 5V3.5h8V5M6 5l1 15a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-15"/><path d="M4 19L19 4"/></svg>
+                        <span id="toolbar-filtros-ativos-texto">0 filtros ativos</span>
+                        <span class="toolbar-filtros-x">✕</span>
+                    </button>
+                </div>
+            <!-- Historico de observacao de qualquer volante (so na aba Volantes Ociosos) ao lado do seletor de mes. -->
+            <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" class="fopag-mes-pill" id="btn-historico-ociosos" style="display:none;" onclick="abrirHistoricoOciososBusca()"
+                    title="Ver o histórico de observação de qualquer volante, mesmo sem dia ocioso neste mês">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3.5 4v4h4"/><path d="M12 7.5V12l3 2"/></svg>
+                <span>Histórico de observação</span>
+            </button>
+            <div class="fopag-mes-container">
+                <button type="button" class="fopag-mes-pill" id="previsao-mes-btn" onclick="alternarDropdownMesPrevisao(event)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 2.8v4M16 2.8v4"/><path d="M3.5 9.8h17"/></svg>
+                    <span id="previsao-mes-label">-</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l5 5 5-5"/></svg>
+                </button>
+                <div class="fopag-mes-dropdown" id="previsao-mes-dropdown"></div>
+            </div>
+            </div>
+
+        </div>
+
+        <!-- COM COBERTURA - colaborador de ferias (centro de custo, matricula, nome, funcao, periodo, escala) e
+           volante que cobre (centro de custo, matricula, nome, funcao). Dados: backend/api/previsao-ferias.php. -->
+        <div id="container-com-cobertura" class="tabela-visualizacao tabela-refinada">
+            <div class="tabela-cabecalho-fixo">
+                <table>
+                    <colgroup>
+                        <col style="width:11%"><col style="width:7.5%"><col style="width:12.5%"><col style="width:10%">
+                        <col style="width:6.5%"><col style="width:6.5%"><col style="width:10%">
+                        <col style="width:10%"><col style="width:7.5%"><col style="width:11%"><col style="width:7.5%">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th rowspan="2" data-filtro="com_cc">CENTRO DE CUSTO</th>
+                            <th rowspan="2" data-filtro="com_mat">MATRICULA</th>
+                            <th rowspan="2" data-filtro="com_nome">NOME</th>
+                            <th rowspan="2" data-filtro="com_funcao">FUNCAO</th>
+                            <th colspan="2">PERIODO</th>
+                            <th rowspan="2" data-filtro="com_escala">ESCALA</th>
+                            <th rowspan="2" data-filtro="com_vol_cc">CENTRO DE CUSTO</th>
+                            <th rowspan="2" data-filtro="com_vol_mat">MATRICULA</th>
+                            <th rowspan="2" data-filtro="com_vol_nome">NOME</th>
+                            <th rowspan="2" data-filtro="com_vol_funcao">FUNCAO</th>
+                        </tr>
+                        <tr>
+                            <th data-filtro="com_inicio">INICIO</th>
+                            <th data-filtro="com_fim">FIM</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="tabela-corpo-rolavel">
+                <table>
+                    <colgroup>
+                        <col style="width:11%"><col style="width:7.5%"><col style="width:12.5%"><col style="width:10%">
+                        <col style="width:6.5%"><col style="width:6.5%"><col style="width:10%">
+                        <col style="width:10%"><col style="width:7.5%"><col style="width:11%"><col style="width:7.5%">
+                    </colgroup>
+                    <tbody id="table-body-com-cobertura">
+                        <tr><td colspan="11" style="text-align:center; padding:50px; color:#999;">Selecione um mês para ver os dados.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SEM COBERTURA - ferias aprovadas que nao precisam de cobertura. Comeca escondida (Com Cobertura e a aba inicial). -->
+        <div id="container-sem-cobertura" class="tabela-visualizacao tabela-refinada" style="display:none;">
+            <div class="tabela-cabecalho-fixo">
+                <table>
+                    <colgroup>
+                        <col style="width:24%"><col style="width:10%"><col style="width:28%"><col style="width:18%"><col style="width:10%"><col style="width:10%">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th rowspan="2" data-filtro="sem_cc">CENTRO DE CUSTO</th>
+                            <th rowspan="2" data-filtro="sem_mat">MATRICULA</th>
+                            <th rowspan="2" data-filtro="sem_nome">NOME</th>
+                            <th rowspan="2" data-filtro="sem_funcao">FUNCAO</th>
+                            <th colspan="2">PERIODO</th>
+                        </tr>
+                        <tr>
+                            <th data-filtro="sem_inicio">INICIO</th>
+                            <th data-filtro="sem_fim">FIM</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="tabela-corpo-rolavel">
+                <table>
+                    <colgroup>
+                        <col style="width:24%"><col style="width:10%"><col style="width:28%"><col style="width:18%"><col style="width:10%"><col style="width:10%">
+                    </colgroup>
+                    <tbody id="table-body-sem-cobertura">
+                        <tr><td colspan="6" style="text-align:center; padding:50px; color:#999;">Selecione um mês para ver os dados.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- VOLANTES OCIOSOS - volantes com dias livres no mes, de hoje em diante (PERIODO = os dias livres). Preposto nao ve. -->
+        <div id="container-ociosos" class="tabela-visualizacao tabela-refinada" style="display:none;">
+            <div class="tabela-cabecalho-fixo">
+                <table>
+                    <colgroup><col style="width:24%"><col style="width:10%"><col style="width:28%"><col style="width:18%"><col style="width:10%"><col style="width:10%"></colgroup>
+                    <thead>
+                        <tr>
+                            <th rowspan="2" data-filtro="oc_cc">CENTRO DE CUSTO</th>
+                            <th rowspan="2" data-filtro="oc_mat">MATRICULA</th>
+                            <th rowspan="2" data-filtro="oc_nome">NOME</th>
+                            <th rowspan="2" data-filtro="oc_funcao">FUNCAO</th>
+                            <th colspan="2">PERIODO</th>
+                        </tr>
+                        <tr>
+                            <th data-filtro="oc_inicio">INICIO</th>
+                            <th data-filtro="oc_fim">FIM</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="tabela-corpo-rolavel">
+                <table>
+                    <colgroup><col style="width:24%"><col style="width:10%"><col style="width:28%"><col style="width:18%"><col style="width:10%"><col style="width:10%"></colgroup>
+                    <tbody id="table-body-ociosos">
+                        <tr><td colspan="6" style="text-align:center; padding:50px; color:#999;">Selecione um mês para ver os dados.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // toggleHotbarDropdown/mostrarToast/toggleNotificacoes/renderizarNotificacoes
+        // vem do backend/filtro.js (compartilhado entre paginas)
+
+        // ==========================================
+        // ESTADO
+        // ==========================================
+        let dadosCoberturaFeriasGlobais = [];   // ferias aprovadas do SAF (backend/api/previsao-ferias.php), 1 item por ferias
+        let avisoSafPrevisao = '';              // motivo de as ferias do SAF nao terem vindo (arquivo ausente/antigo)
+        // null = nenhum mes escolhido; a pagina nao busca nada antes disso
+        let mesSelecionadoPrevisao = null;      // 1-12
+        let anoSelecionadoPrevisao = null;
+        let passoAtualDropdownPrevisao = 'ano';
+        // Ferias do SAF carregam ao abrir o dropdown (lista de meses)
+        let dadosCoberturaFeriasCarregados = false;
+        let abaAtivaPrevisao = 'com';
+        // Usados pelos filtros de coluna de filtro.js. Chaves "com_"/"sem_"/"oc_": as 3 abas dividem o mesmo objeto.
+        let filtrosAtivos = {};
+        let ordenacaoAtual = { coluna: null, tipo: null };
+        // Uma ordenacao por tabela (prefixo com_/sem_/oc_): ordenar uma nao desfaz a das outras. ordenacaoAtual (filtro.js) e so a ultima escolhida.
+        let ordenacaoPorTabelaPrevisao = {};
+        let linhasComPrevisao = [];
+        let linhasSemPrevisao = [];
+        let linhasOciososPrevisao = [];
+        let volantesPrevisao = [];              // volantes do perfil com os periodos em que cobrem ferias (aba Volantes Ociosos)
+        let exVolantesPrevisao = [];            // RH/Admin: quem saiu da aba e tem Historico de observacao (busca do historico)
+        let selecaoNotaOciosos = null;          // multi selecao da nota (aba Volantes Ociosos): Set de matriculas; null = desligada
+        // RH/Admin/Gestor alteram a cobertura (painel ao clicar na linha), mandada ao SAF (previsao-ferias.php).
+        let podeAlterarPrevisao = false;
+        let feriasModalPrevisao = null;
+
+        const NOMES_MESES_PREVISAO = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                                       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+        // display:none nao basta: ":has(.tabela-cabecalho-fixo)" do style.css forca display:flex !important
+        function mostrarOuEsconderPrevisao(elemento, mostrar) {
+            if (!elemento) return;
+            if (mostrar) {
+                elemento.style.removeProperty('display');
+            } else {
+                elemento.style.setProperty('display', 'none', 'important');
+            }
+        }
+
+        function alternarAbaPrevisao(aba) {
+            abaAtivaPrevisao = aba;
+            mostrarOuEsconderPrevisao(document.getElementById('container-com-cobertura'), aba === 'com');
+            mostrarOuEsconderPrevisao(document.getElementById('container-sem-cobertura'), aba === 'sem');
+            mostrarOuEsconderPrevisao(document.getElementById('container-ociosos'), aba === 'oc');
+            document.getElementById('stat-com-cobertura').classList.toggle('ativo', aba === 'com');
+            document.getElementById('stat-sem-cobertura').classList.toggle('ativo', aba === 'sem');
+            document.getElementById('stat-ociosos').classList.toggle('ativo', aba === 'oc');
+            document.getElementById('btn-historico-ociosos').style.display = aba === 'oc' ? '' : 'none';
+            if (aba !== (notaNasFerias ? 'com' : 'oc')) sairMultiSelecaoNota();
+            atualizarBotaoFiltrosPrevisao();
+        }
+
+        // ==========================================
+        // SELETOR DE MES (ano, depois mes) - lista so os meses em que alguma ferias do SAF COMECA
+        // ==========================================
+
+        // Le as ferias do SAF uma so vez; precisa estar pronta antes de listar os meses
+        async function garantirCoberturaFeriasPrevisaoCarregada() {
+            if (dadosCoberturaFeriasCarregados) return;
+            try {
+                const resposta = await dbPrevisaoFerias();
+                dadosCoberturaFeriasGlobais = resposta.dados;
+                volantesPrevisao = resposta.volantes || []; // null = Preposto (aba escondida)
+                exVolantesPrevisao = resposta.ex_volantes || []; // null = nao e RH/Admin
+                podeAlterarPrevisao = !!resposta.pode_alterar;
+                avisoSafPrevisao = resposta.aviso_saf || '';
+                dadosCoberturaFeriasCarregados = true;
+                if (avisoSafPrevisao) adicionarNotificacaoUpload(avisoSafPrevisao, '#e67e22');
+            } catch (e) {
+                console.error("Erro ao carregar as ferias do SAF:", e);
+                dadosCoberturaFeriasGlobais = [];
+                mostrarToast('Erro ao buscar os meses com solicitação de férias.', '#e74c3c');
+            }
+        }
+
+        // Ferias conta so no mes em que COMECA (regra do negocio): ferias de 28/10 a 26/11 e so de outubro.
+        function anoMesInicioFerias(ferias) {
+            const [ano, mes] = ferias.ferias_inicio.split('-').map(Number);
+            return { ano, mes };
+        }
+
+        // [{ano, mes}, ...] com pelo menos 1 ferias comecando no mes; mais recente primeiro
+        function periodosDisponiveisPrevisao() {
+            const chaves = new Set();
+            dadosCoberturaFeriasGlobais.forEach(f => {
+                const { ano, mes } = anoMesInicioFerias(f);
+                chaves.add(`${ano}-${mes}`);
+            });
+            return [...chaves]
+                .map(chave => { const [ano, mes] = chave.split('-').map(Number); return { ano, mes }; })
+                .sort((a, b) => b.ano - a.ano || b.mes - a.mes);
+        }
+
+        function montarDropdownMesPrevisao() {
+            const dropdown = document.getElementById('previsao-mes-dropdown');
+            dropdown.innerHTML = '';
+
+            const periodos = periodosDisponiveisPrevisao();
+
+            if (periodos.length === 0) {
+                const vazio = document.createElement('div');
+                vazio.className = 'fopag-mes-dropdown-titulo';
+                vazio.textContent = avisoSafPrevisao || 'Nenhuma solicitação de férias registrada ainda';
+                dropdown.appendChild(vazio);
+                return;
+            }
+
+            // Titulo fica fora da lista que rola (nao sticky), senao um mes vaza por cima dele no canto arredondado
+            const lista = document.createElement('div');
+            lista.className = 'fopag-mes-lista';
+
+            if (passoAtualDropdownPrevisao === 'ano') {
+                const titulo = document.createElement('div');
+                titulo.className = 'fopag-mes-dropdown-titulo';
+                titulo.textContent = 'Selecione o ano';
+                dropdown.appendChild(titulo);
+
+                const anos = [...new Set(periodos.map(p => p.ano))]; // ja vem ordenado (mais recente primeiro)
+                anos.forEach(ano => {
+                    const item = document.createElement('div');
+                    item.className = 'fopag-mes-item' + (ano === anoSelecionadoPrevisao ? ' ativo' : '');
+                    item.textContent = ano;
+                    item.onclick = () => {
+                        anoSelecionadoPrevisao = ano;
+                        passoAtualDropdownPrevisao = 'mes';
+                        montarDropdownMesPrevisao();
+                    };
+                    lista.appendChild(item);
+                });
+            } else {
+                const titulo = document.createElement('div');
+                titulo.className = 'fopag-mes-dropdown-titulo clicavel';
+                titulo.textContent = `< ${anoSelecionadoPrevisao}`;
+                titulo.onclick = () => { passoAtualDropdownPrevisao = 'ano'; montarDropdownMesPrevisao(); };
+                dropdown.appendChild(titulo);
+
+                const mesesDoAno = periodos
+                    .filter(p => p.ano === anoSelecionadoPrevisao)
+                    .map(p => p.mes)
+                    .sort((a, b) => a - b);
+
+                mesesDoAno.forEach(mes => {
+                    const item = document.createElement('div');
+                    item.className = 'fopag-mes-item' + (mes === mesSelecionadoPrevisao ? ' ativo' : '');
+                    item.textContent = NOMES_MESES_PREVISAO[mes - 1];
+                    item.onclick = () => selecionarMesPrevisao(mes);
+                    lista.appendChild(item);
+                });
+            }
+
+            dropdown.appendChild(lista);
+        }
+
+        async function selecionarMesPrevisao(mes) {
+            mesSelecionadoPrevisao = mes;
+            document.getElementById('previsao-mes-label').textContent =
+                `${NOMES_MESES_PREVISAO[mes - 1]} ${anoSelecionadoPrevisao}`;
+            document.getElementById('previsao-mes-dropdown').classList.remove('mostrando');
+
+            renderizarPrevisao();
+        }
+
+        async function alternarDropdownMesPrevisao(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('previsao-mes-dropdown');
+            if (dropdown.classList.contains('mostrando')) {
+                dropdown.classList.remove('mostrando');
+                return;
+            }
+            passoAtualDropdownPrevisao = anoSelecionadoPrevisao ? 'mes' : 'ano';
+            dropdown.innerHTML = '<div class="fopag-mes-dropdown-titulo">Carregando...</div>';
+            dropdown.classList.add('mostrando');
+            // Precisa saber quais meses tem solicitacao antes de desenhar a lista (busca so 1 vez)
+            await garantirCoberturaFeriasPrevisaoCarregada();
+            montarDropdownMesPrevisao();
+        }
+
+        document.addEventListener('click', (event) => {
+            const container = document.querySelector('.fopag-mes-container');
+            const dropdown = document.getElementById('previsao-mes-dropdown');
+            if (dropdown && dropdown.classList.contains('mostrando') && container && !container.contains(event.target)) {
+                dropdown.classList.remove('mostrando');
+            }
+        });
+
+        // Evita o clique borbulhar ate o listener acima e fechar o dropdown ao redesenhar (igual ao PFM)
+        document.getElementById('previsao-mes-dropdown').addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+
+        // manterFiltros: redesenho depois de salvar no painel (mesmo mes, mesmos dados) - filtros e ordenacoes continuam.
+        function renderizarPrevisao(manterFiltros = false) {
+            const feriasDoMes = dadosCoberturaFeriasGlobais.filter(f => {
+                const { ano, mes } = anoMesInicioFerias(f);
+                return ano === anoSelecionadoPrevisao && mes === mesSelecionadoPrevisao;
+            });
+
+            // 1 linha por ferias. Sem volante de verdade (vaga/interna) as colunas de quem cobre ficam "-".
+            const ROTULOS_COBERTURA = { vaga: 'VAGA EM ABERTO', interna: 'COBERTURA INTERNA' };
+            const isoParaBr = iso => iso.split('-').reverse().join('/');
+            // Ferias do proprio volante vem pra ca mesmo sem precisar de cobertura (o SAF nao pede cobertura de volante).
+            const vaiPraCom = f => f.precisa_cobertura || f.titular_volante;
+            linhasComPrevisao = feriasDoMes.filter(vaiPraCom).map(f => {
+                // Troca de quem cobre depois do inicio: quem cobriu antes e quem cobre agora, um embaixo do outro, cada um com o periodo
+                // (decisao do usuario, 2026-11-09). Sem troca, uma pessoa so, sem periodo (e o das ferias).
+                const antes = f.coberturas_anteriores || [];
+                const vol = [...antes.map(t => [formatarCentroCusto(t.centro_custo || '-'), normalizarMatricula(t.matricula) || '-',
+                        t.nome + (t.rotulo ? ` (${t.rotulo})` : ''), t.funcao || '-', `${isoParaBr(t.desde)} a ${isoParaBr(t.ate)}`]),
+                    [formatarCentroCusto(f.volante_centro_custo || '-'), normalizarMatricula(f.volante_matricula) || '-',
+                        !f.precisa_cobertura ? 'FÉRIAS DE VOLANTE' : ROTULOS_COBERTURA[f.cobertura] || f.volante_nome, f.volante_funcao || '-',
+                        `${isoParaBr(f.cobertura_inicio || f.ferias_inicio)} a ${isoParaBr(f.ferias_fim)}`]];
+                const coluna = i => antes.length ? vol.map(v => v[i]) : vol[0][i];
+                return {
+                com_cc: formatarCentroCusto(f.titular_centro_custo),
+                com_mat: normalizarMatricula(f.titular_matricula),
+                com_nome: f.titular_nome,
+                com_funcao: f.titular_funcao || '-',
+                com_inicio: f.ferias_inicio.split('-').reverse().join('/'),
+                com_fim: f.ferias_fim.split('-').reverse().join('/'),
+                com_escala: f.escala || '-',
+                com_vol_cc: coluna(0),
+                com_vol_mat: coluna(1),
+                com_vol_nome: coluna(2),
+                com_vol_funcao: coluna(3),
+                periodosVol: antes.length ? vol.map(v => v[4]) : null,
+                id: f.id,
+                pendente: f.pendente_desde,
+                feriasDeVolante: !f.precisa_cobertura, // so chega aqui sem precisar se for ferias de volante: nada a alterar
+                nota: f.nota || null, // nota do Preposto (botao direito, NOTA abaixo)
+                // Nome do SAF sem cadastro no CGV: mostra o nome exato, em amarelo, pra ser tratado
+                naoEncontrado: f.cobertura === 'volante' && !f.volante_matricula,
+                // Texto escrito no SAF: a linha mostra so "COBERTURA INTERNA"; o texto fica no mouse. Transferencia e emprestimo: o nome,
+                // e no mouse o aviso (no emprestimo, com quem vai para o posto de origem).
+                motivoInterna: f.cobertura === 'transferencia' ? `TRANSFERÊNCIA${f.transferencia_link ? ': ' + f.transferencia_link : ''}`
+                    : f.cobertura === 'emprestimo' ? `EMPRESTADO DE OUTRO CONTRATO${f.substituto_nome ? ` — substituto no posto de origem: ${normalizarMatricula(f.substituto_matricula)} - ${f.substituto_nome}` : ''}`
+                    : f.motivo_interna
+                };
+            });
+            linhasComPrevisao.sort((a, b) => (a.com_nome || '').localeCompare(b.com_nome || ''));
+
+            // Ferias que nao precisam de cobertura (SAF "Nao"), tambem pelo mes de inicio.
+            linhasSemPrevisao = feriasDoMes.filter(f => !vaiPraCom(f)).map(f => ({
+                sem_cc: formatarCentroCusto(f.titular_centro_custo),
+                sem_mat: normalizarMatricula(f.titular_matricula),
+                sem_nome: f.titular_nome,
+                sem_funcao: f.titular_funcao || '-',
+                sem_inicio: isoParaBr(f.ferias_inicio),
+                sem_fim: isoParaBr(f.ferias_fim),
+                id: f.id,
+                pendente: f.pendente_desde
+            }));
+            linhasSemPrevisao.sort((a, b) => (a.sem_nome || '').localeCompare(b.sem_nome || ''));
+
+            // Ocioso = tem dia livre no mes, de hoje em diante (dia passado nao da mais pra incluir em cobertura), entre a
+            // admissao e o dia antes do desligamento. Ocupado vem do servidor (coberturas de ferias e do CGV, ausencias, ferias).
+            const iso = d => d.toLocaleDateString('sv-SE');
+            const hoje = iso(new Date());
+            linhasOciososPrevisao = volantesPrevisao.map(v => {
+                const livres = [];
+                for (let d = new Date(anoSelecionadoPrevisao, mesSelecionadoPrevisao - 1, 1); d.getMonth() === mesSelecionadoPrevisao - 1; d.setDate(d.getDate() + 1)) {
+                    const dia = iso(d);
+                    if (dia < hoje || (v.admissao && dia < v.admissao) || (v.desligamento && dia > v.desligamento)) continue;
+                    if (v.ocupado.some(([ini, fim]) => ini <= dia && dia <= fim)) continue;
+                    const ultimo = livres[livres.length - 1];
+                    if (ultimo && iso(new Date(new Date(ultimo[1] + 'T12:00').getTime() + 864e5)) === dia) ultimo[1] = dia;
+                    else livres.push([dia, dia]);
+                }
+                return {
+                    oc_cc: formatarCentroCusto(v.centro_custo),
+                    oc_mat: normalizarMatricula(v.matricula),
+                    oc_nome: v.nome,
+                    oc_funcao: v.funcao || '-',
+                    // Um trecho livre por item: a celula mostra um por linha (uma linha por volante, escolha do usuario 2026-11-09).
+                    oc_inicio: livres.map(([ini]) => isoParaBr(ini)),
+                    oc_fim: livres.map(([, fim]) => isoParaBr(fim)),
+                    matricula: v.matricula, // a do cadastro (sem normalizar): e a chave da nota (previsao-ferias.php?acao=nota)
+                    nota: notaDoMesOciosos(v)
+                };
+            }).filter(l => l.oc_inicio.length);
+
+            // Mes novo comeca sem filtro: o valor filtrado pode nem existir nele. Tambem desenha as tabelas.
+            if (manterFiltros) aplicarLogica(); else resetarFiltros();
+        }
+
+        function montarFiltrosPrevisao() {
+            document.querySelectorAll('th[data-filtro]').forEach(th => {
+                const col = th.dataset.filtro;
+                filtrosAtivos[col] = [];
+                th.innerHTML = `
+                    <div class="th-content">
+                        <span>${th.textContent}</span>
+                        <div class="multi-select-container">
+                            <div class="multi-select-button" onclick="toggleDropdown('${col}')" title="Filtrar">
+                                <span id="label-${col}" class="th-filtro-label-oculto">Todos</span>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16L14 13v6l-4 2v-8L4 5z"/></svg>
+                            </div>
+                            <div id="dropdown-${col}" class="multi-select-dropdown">
+                                <div class="sort-section">
+                                    <button class="btn-sort" id="btn-sort-asc-${col}" onclick="aplicarOrdenacao('${col}', 'ASC')">A a Z / Menor para Maior</button>
+                                    <button class="btn-sort" id="btn-sort-desc-${col}" onclick="aplicarOrdenacao('${col}', 'DESC')">Z a A / Maior para Menor</button>
+                                </div>
+                                <div class="search-box-container">
+                                    <input type="text" class="filter-search-input" placeholder="Buscar..." onkeyup="filtrarListaInterna('${col}', this.value)">
+                                </div>
+                                <div class="dropdown-controls">
+                                    <button class="btn-mini" onclick="marcarTodos('${col}', true)">Todos</button>
+                                    <button class="btn-mini" onclick="marcarTodos('${col}', false)">Limpar</button>
+                                </div>
+                                <div id="items-${col}" class="items-list"></div>
+                                <div class="dropdown-aplicar-container">
+                                    <button class="btn-aplicar-filtro" onclick="confirmarFiltro('${col}')">Aplicar</button>
+                                </div>
+                                <div class="filtro-resize-handle" title="Arraste para redimensionar"></div>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        // "ignorar": a lista de opcoes de uma coluna considera os filtros das OUTRAS, nunca o dela mesma
+        function filtrarLinhasPrevisao(lista, prefixo, ignorar) {
+            return Object.keys(filtrosAtivos)
+                .filter(col => col.startsWith(prefixo) && col !== ignorar && filtrosAtivos[col].length > 0)
+                // Celula com lista (INICIO/FIM dos Volantes Ociosos): passa se alguma data bate.
+                .reduce((linhas, col) => linhas.filter(l => [].concat(l[col]).some(v => filtrosAtivos[col].includes(String(v).trim()))), lista);
+        }
+
+        function atualizarOpcoesFiltrosPrevisao(lista, prefixo) {
+            Object.keys(filtrosAtivos).filter(col => col.startsWith(prefixo)).forEach(col => {
+                const unicos = [...new Set(filtrarLinhasPrevisao(lista, prefixo, col).flatMap(l => [].concat(l[col]).map(v => String(v).trim())))].filter(v => v !== '').sort();
+                renderizarListaFiltro(col, unicos, document.getElementById(`items-${col}`));
+                const qtd = filtrosAtivos[col].length;
+                const label = document.getElementById(`label-${col}`);
+                label.innerText = qtd === 0 ? 'Todos' : (qtd === 1 ? filtrosAtivos[col][0] : `${qtd} selecionados`);
+                label.closest('.multi-select-container').classList.toggle('tem-filtro', qtd > 0);
+            });
+        }
+
+        // Chamada por filtro.js ao aplicar filtro/ordenacao. Os contadores acompanham o que esta na tela.
+        function aplicarLogica() {
+            if (mesSelecionadoPrevisao === null) return;
+
+            // resetarFiltros (filtro.js, na troca de mes) zera ordenacaoAtual: limpa a de todas as tabelas.
+            if (!ordenacaoAtual.coluna) ordenacaoPorTabelaPrevisao = {};
+            else ordenacaoPorTabelaPrevisao[ordenacaoAtual.coluna.split('_')[0] + '_'] = { coluna: ordenacaoAtual.coluna, tipo: ordenacaoAtual.tipo };
+            const ordenar = (linhas, prefixo) => {
+                const o = ordenacaoPorTabelaPrevisao[prefixo];
+                // Celula com lista: Volantes Ociosos pelo 1o trecho; quem cobre (com_vol_*, troca de quem cobre: quem cobriu antes em cima)
+                // pelo ultimo, quem cobre agora (revisao de 2026-11-13).
+                const valor = l => { const v = [].concat(l[o.coluna]); return o.coluna.startsWith('com_vol_') ? v[v.length - 1] : v[0]; };
+                return o ? [...linhas].sort((a, b) => compararParaOrdenacao(valor(a), valor(b), o.tipo)) : linhas;
+            };
+            const linhasCom = ordenar(filtrarLinhasPrevisao(linhasComPrevisao, 'com_'), 'com_');
+            const linhasSem = ordenar(filtrarLinhasPrevisao(linhasSemPrevisao, 'sem_'), 'sem_');
+
+            document.getElementById('stat-com-cobertura-num').innerText = linhasCom.length;
+            document.getElementById('stat-sem-cobertura-num').innerText = linhasSem.length;
+
+            const corpoCom = document.getElementById('table-body-com-cobertura');
+            if (linhasCom.length === 0) {
+                corpoCom.innerHTML = "<tr><td colspan='11' style='text-align:center; padding:40px; color:#999;'>Nenhum colaborador com cobertura de ferias neste mes.</td></tr>";
+            } else {
+                // Troca de quem cobre: as colunas de quem cobre tem uma pessoa por linha, o periodo curto (dd/mm) antes do nome - nome
+                // longo corta, o periodo nao; o mouse mostra tudo, com o ano.
+                const celula = v => [].concat(v).map(escapeHtml).join('<br>');
+                const titulo = v => Array.isArray(v) ? ` title="${escapeHtml(v.join('\n'))}"` : '';
+                corpoCom.innerHTML = linhasCom.map(l => {
+                    const nomes = [].concat(l.com_vol_nome);
+                    const tituloNome = [l.naoEncontrado ? 'Nome vindo do SAF, não encontrado no cadastro do CGV' : '',
+                        l.periodosVol ? nomes.map((n, i) => `${n} (${l.periodosVol[i]})`).join('\n') : '', l.motivoInterna].filter(Boolean).join('\n');
+                    return `
+                    <tr ${atributosLinhaPrevisao(l)}${atributosNotaFerias(l)}>
+                        <td>${escapeHtml(l.com_cc)}</td>
+                        <td>${escapeHtml(l.com_mat)}</td>
+                        <td>${l.nota ? ICONE_NOTA_OCIOSOS : ''}${escapeHtml(l.com_nome)}</td>
+                        <td>${escapeHtml(l.com_funcao)}</td>
+                        <td>${escapeHtml(l.com_inicio)}</td>
+                        <td>${escapeHtml(l.com_fim)}</td>
+                        <td>${escapeHtml(l.com_escala)}</td>
+                        <td${titulo(l.com_vol_cc)}>${celula(l.com_vol_cc)}</td>
+                        <td${titulo(l.com_vol_mat)}>${celula(l.com_vol_mat)}</td>
+                        <td${l.naoEncontrado ? ' style="background:#fff3cd; color:#8a6d1d;"' : ''}${tituloNome ? ` title="${escapeHtml(tituloNome)}"` : ''}>${nomes.map((n, i) =>
+                            (l.periodosVol ? `<span class="periodo-quem-cobre">${escapeHtml(l.periodosVol[i].replace(/\/\d{4}/g, ''))}</span> ` : '') + escapeHtml(n)).join('<br>')}</td>
+                        <td${titulo(l.com_vol_funcao)}>${celula(l.com_vol_funcao)}</td>
+                    </tr>`;
+                }).join('');
+            }
+            // Texto cortado pela largura da coluna continua legivel ao passar o mouse; com nota do Preposto, o mouse mostra tambem a nota.
+            corpoCom.querySelectorAll('tr').forEach((tr, i) => {
+                const n = linhasCom[i]?.nota;
+                const nota = n ? `\n\nNota do Preposto de ${dataNotaOciosos(n.em)}${n.por ? ` (${n.por})` : ''}: ${n.texto}` : '';
+                tr.querySelectorAll('td').forEach(td => { td.title = (td.title || td.textContent.trim()) + nota; });
+            });
+
+            const corpoSem = document.getElementById('table-body-sem-cobertura');
+            if (linhasSem.length === 0) {
+                corpoSem.innerHTML = "<tr><td colspan='6' style='text-align:center; padding:40px; color:#999;'>Nenhuma ferias sem necessidade de cobertura neste mes.</td></tr>";
+            } else {
+                corpoSem.innerHTML = linhasSem.map(l => `
+                    <tr ${atributosLinhaPrevisao(l)}>
+                        <td>${escapeHtml(l.sem_cc)}</td>
+                        <td>${escapeHtml(l.sem_mat)}</td>
+                        <td>${escapeHtml(l.sem_nome)}</td>
+                        <td>${escapeHtml(l.sem_funcao)}</td>
+                        <td>${escapeHtml(l.sem_inicio)}</td>
+                        <td>${escapeHtml(l.sem_fim)}</td>
+                    </tr>`).join('');
+            }
+            corpoSem.querySelectorAll('td').forEach(td => { if (!td.title) td.title = td.textContent.trim(); });
+
+            const linhasOc = ordenar(filtrarLinhasPrevisao(linhasOciososPrevisao, 'oc_'), 'oc_');
+            document.getElementById('stat-ociosos-num').innerText = linhasOc.length;
+            const corpoOc = document.getElementById('table-body-ociosos');
+            const mesPassou = new Date(anoSelecionadoPrevisao, mesSelecionadoPrevisao, 0).toLocaleDateString('sv-SE') < new Date().toLocaleDateString('sv-SE');
+            corpoOc.innerHTML = linhasOc.length === 0
+                ? `<tr><td colspan='6' style='text-align:center; padding:40px; color:#999;'>${mesPassou ? 'Esse mês já passou: ocioso conta só de hoje em diante.' : 'Nenhum volante ocioso neste mês.'}</td></tr>`
+                : linhasOc.map(l => {
+                    // Com nota, o mouse em qualquer celula da linha mostra tambem a data e o texto dela.
+                    const nota = l.nota ? `\n\nNota de ${dataNotaOciosos(l.nota.em)}${l.nota.por ? ` (${l.nota.por})` : ''}: ${l.nota.texto}` : '';
+                    const celulas = [l.oc_cc, l.oc_mat, l.oc_nome, l.oc_funcao, l.oc_inicio, l.oc_fim].map((c, i) => {
+                        const v = [].concat(c); // INICIO/FIM: uma data por linha
+                        return `<td title="${escapeHtml(v.join('\n') + nota)}">${i === 2 && l.nota ? ICONE_NOTA_OCIOSOS : ''}${v.map(escapeHtml).join('<br>')}</td>`;
+                    }).join('');
+                    return `<tr data-mat="${escapeHtml(l.matricula)}"${selecaoNotaOciosos?.has(l.matricula) ? ' class="nota-selecionada"' : ''}>${celulas}</tr>`;
+                }).join('');
+            atualizarBarraNotaOciosos();
+
+            atualizarOpcoesFiltrosPrevisao(linhasComPrevisao, 'com_');
+            atualizarOpcoesFiltrosPrevisao(linhasSemPrevisao, 'sem_');
+            atualizarOpcoesFiltrosPrevisao(linhasOciososPrevisao, 'oc_');
+
+            atualizarBotaoFiltrosPrevisao();
+        }
+
+        // "X filtros ativos" conta e limpa so a tabela aberta (pedido do usuario, 2026-11-09): as outras continuam filtradas. A
+        // ordenacao fica como esta; trocar de mes continua limpando tudo (resetarFiltros).
+        function atualizarBotaoFiltrosPrevisao() {
+            const qtd = Object.keys(filtrosAtivos).filter(col => col.startsWith(abaAtivaPrevisao + '_') && filtrosAtivos[col].length > 0).length;
+            document.getElementById('toolbar-filtros-ativos-texto').textContent = qtd === 1 ? '1 filtro ativo' : `${qtd} filtros ativos`;
+            document.getElementById('toolbar-flutuante-previsao').style.display = qtd > 0 ? 'flex' : 'none';
+        }
+        function limparFiltrosAbaPrevisao() {
+            Object.keys(filtrosAtivos).forEach(col => { if (col.startsWith(abaAtivaPrevisao + '_')) filtrosAtivos[col] = []; });
+            aplicarLogica();
+        }
+
+        window.onload = async function() {
+            renderizarNotificacoes();
+            // display:none estatico nao basta (ver mostrarOuEsconderPrevisao)
+            alternarAbaPrevisao('com');
+            if (souPreposto()) document.getElementById('stat-ociosos').style.display = 'none'; // Preposto nao designa volante
+            montarFiltrosPrevisao();
+            // So os nomes de centro de custo carregam sozinhos; dados so sao buscados quando o usuario escolhe um mes
+            carregarDescricoesCentroCustoDoCache();
+            await garantirDescricoesCentroCusto();
+        };
+
+        window.onclick = (e) => {
+            if (!e.target.matches('.hotbar-btn') && !e.target.closest('.hotbar-dropdown-content')) {
+                document.querySelectorAll('.hotbar-dropdown-content').forEach(l => l.classList.remove('show'));
+            }
+            const painel = document.getElementById('painel-notificacoes');
+            const btnSino = document.querySelector('.btn-sino');
+            if (painel && painel.classList.contains('show')) {
+                if (!painel.contains(e.target) && (!btnSino || !btnSino.contains(e.target))) {
+                    painel.classList.remove('show');
+                    if (typeof reposicionarToasts === 'function') reposicionarToasts();
+                }
+            }
+        };
+
+        // ==========================================
+        // ALTERAR COBERTURA (RH/Admin/Gestor): pedido ao SAF, aplicado em ate 1 minuto
+        // ==========================================
+        function atributosLinhaPrevisao(l) {
+            if (!podeAlterarPrevisao || l.feriasDeVolante) return '';
+            return `data-id="${Number(l.id) || 0}" style="cursor:pointer;${l.pendente ? ' opacity:.55;' : ''}"`;
+        }
+        // Preposto: linha que aceita a nota do botao direito (ferias que precisa de cobertura) e a marcada na multi selecao.
+        function atributosNotaFerias(l) {
+            if (!notaNasFerias || l.feriasDeVolante || !Number(l.id)) return '';
+            return ` data-nota="${Number(l.id)}"${selecaoNotaOciosos?.has(String(l.id)) ? ' class="nota-selecionada"' : ''}`;
+        }
+        ['table-body-com-cobertura', 'table-body-sem-cobertura'].forEach(idCorpo => {
+            document.getElementById(idCorpo).addEventListener('click', e => {
+                const tr = e.target.closest('tr[data-id]');
+                if (tr) abrirModalCoberturaPrevisao(Number(tr.dataset.id));
+            });
+        });
+
+        async function abrirModalCoberturaPrevisao(id) {
+            const f = dadosCoberturaFeriasGlobais.find(x => x.id === id);
+            if (!f) return;
+            feriasModalPrevisao = f;
+            const br = iso => iso.split('-').reverse().join('/');
+            document.getElementById('mcf-titulo').textContent = `${normalizarMatricula(f.titular_matricula)} - ${f.titular_nome}`;
+            document.getElementById('mcf-periodo').textContent = `Férias de ${br(f.ferias_inicio)} a ${br(f.ferias_fim)} · ${formatarCentroCusto(f.titular_centro_custo)}`;
+            // Troca de quem cobre: quem cobriu antes, cada um com o periodo dele.
+            const historico = document.getElementById('mcf-historico');
+            historico.textContent = (f.coberturas_anteriores || []).length
+                ? 'Cobriu antes: ' + f.coberturas_anteriores.map(t => `${t.nome} (${br(t.desde)} a ${br(t.ate)})`).join('; ') : '';
+            historico.style.display = historico.textContent ? '' : 'none';
+            // Nota do Preposto (botao direito na aba, no perfil Preposto): so leitura aqui; vai na mensagem do WhatsApp para o colaborador.
+            document.getElementById('mcf-bloco-nota').style.display = f.nota ? '' : 'none';
+            document.getElementById('mcf-nota').value = f.nota?.texto || '';
+            document.getElementById('mcf-nota-rotulo').textContent = f.nota ? `Nota do Preposto · ${dataNotaOciosos(f.nota.em)}${f.nota.por ? ` · ${f.nota.por}` : ''}` : '';
+            // Em andamento a unica acao e incluir quem cobre: "Nao precisa" ja abre em "Precisa de cobertura" (travado, com aviso).
+            // Com pedido aguardando o SAF (so visualizar), mostra o que o SAF ainda tem.
+            document.getElementById('mcf-nao-precisa').checked = !f.precisa_cobertura && (!f.a_partir_faixa || !!f.pendente_desde);
+            document.getElementById('mcf-motivo').value = f.motivo_interna || '';
+            const atuais = { transf: f.cobertura === 'transferencia' ? { matricula: f.volante_matricula, nome: f.volante_nome } : null,
+                emp: f.cobertura === 'emprestimo' ? { matricula: f.volante_matricula, nome: f.volante_nome } : null,
+                sub: f.cobertura === 'emprestimo' && f.substituto_matricula ? { matricula: f.substituto_matricula, nome: f.substituto_nome } : null };
+            Object.entries(atuais).forEach(([campo, p]) => {
+                pessoasPrevisao[campo].escolhido = p;
+                document.getElementById(`mcf-${campo}-busca`).value = pessoasPrevisao[campo].texto = p ? `${normalizarMatricula(p.matricula)} - ${p.nome}` : '';
+            });
+            document.getElementById('mcf-emp-substituir').checked = !!atuais.sub;
+            document.getElementById('mcf-transf-link').value = f.cobertura === 'transferencia' ? f.transferencia_link || '' : '';
+            opcoesCoberturaPrevisao = [];
+            document.getElementById('mcf-cobertura').value = '';
+            document.getElementById('mcf-cobertura-busca').value = textoCoberturaPrevisao = 'Carregando...';
+            const aviso = document.getElementById('mcf-aviso');
+            // Ferias em andamento (a_partir_faixa): so escolher quem cobre (na troca tambem Vaga em aberto; com quem cobre ou vaga em aberto,
+            // tambem "Nao precisa de cobertura") e a partir de quando. A faixa
+            // vai ate o fim das ferias (troca programada); o dia ja vem em hoje - na troca programada, no dia em que quem cobre comeca
+            // (a faixa deixa refazer para antes) -, dentro da faixa. Igual a acao=volantes sem a_partir_de.
+            const emAndamento = !!f.a_partir_faixa;
+            const apartir = document.getElementById('mcf-apartir');
+            document.getElementById('mcf-bloco-apartir').style.display = emAndamento ? '' : 'none';
+            if (emAndamento) {
+                const hojeIso = new Date().toLocaleDateString('sv-SE');
+                const alvo = f.troca && f.cobertura_inicio > hojeIso ? f.cobertura_inicio : hojeIso;
+                [apartir.min, apartir.max] = f.a_partir_faixa;
+                apartir.value = alvo < apartir.min ? apartir.min : alvo > apartir.max ? apartir.max : alvo;
+            }
+            const bloqueio = !f.editavel ? 'As férias já começaram: só é possível visualizar.'
+                : f.pendente_desde ? `Alteração enviada em ${new Date(f.pendente_desde.replace(' ', 'T')).toLocaleString('pt-BR')}, aguardando o SAF.` : '';
+            aviso.textContent = bloqueio || (emAndamento ? avisoEmAndamentoPrevisao(f) : '');
+            document.getElementById('modal-cobertura-ferias').style.display = 'flex';
+            travarModalCoberturaPrevisao(true); // ate a lista de volantes chegar
+
+            let resposta = { contrato_aceita: true, volantes: [] };
+            centrosVolantePrevisao = new Set();
+            let erroCarga = false;
+            if (!bloqueio) {
+                try {
+                    resposta = await dbPrevisaoFerias(`acao=volantes&id=${id}`);
+                } catch (e) {
+                    aviso.textContent = e.message;
+                    erroCarga = true;
+                }
+            }
+            if (feriasModalPrevisao !== f) return;
+            centrosVolantePrevisao = new Set((resposta.centros_volante || []).map(c => String(c).trim().toUpperCase()));
+            travarModalCoberturaPrevisao(!!bloqueio || erroCarga);
+            montarOpcoesCoberturaPrevisao(f, resposta);
+            const atual = opcoesCoberturaPrevisao.find(o => o.valor === f.cobertura);
+            document.getElementById('mcf-cobertura').value = atual ? atual.valor : '';
+            document.getElementById('mcf-cobertura-busca').value = textoCoberturaPrevisao = atual ? textoOpcaoCoberturaPrevisao(atual)
+                : f.cobertura === 'volante' ? `${f.volante_nome} (atual${f.volante_matricula ? '' : ', sem cadastro no CGV'})`
+                : f.cobertura === 'transferencia' ? `${f.volante_nome} (transferência)` : f.cobertura === 'emprestimo' ? `${f.volante_nome} (emprestado)` : '';
+            if (!resposta.contrato_aceita && !bloqueio) {
+                // Em andamento como "nao precisa" so da pra incluir quem cobre, e esse contrato nao aceita cobertura: so visualizar. Com
+                // quem cobre ou vaga em aberto ainda da para marcar que nao precisa, a partir de um dia.
+                aviso.textContent = emAndamento && !f.precisa_cobertura
+                    ? 'Este contrato não está em "Contratos que precisam de cobertura" no SAF: para incluir quem cobre, cadastre o contrato lá (Ajuste Tabelas) e abra estas férias de novo.'
+                    : 'Este contrato não está em "Contratos que precisam de cobertura" no SAF: só é possível marcar que não precisa' + (emAndamento ? ' a partir de um dia.' : '.');
+                document.getElementById('mcf-nao-precisa').checked = !f.precisa_cobertura; // volta ao que o SAF tem
+                document.getElementById('mcf-nao-precisa').disabled = !f.precisa_cobertura;
+                document.getElementById('mcf-nao-precisa').dataset.semContrato = '1';
+                if (emAndamento && !f.precisa_cobertura) {
+                    travarModalCoberturaPrevisao(true);
+                    document.getElementById('mcf-bloco-apartir').style.display = 'none';
+                }
+            } else {
+                delete document.getElementById('mcf-nao-precisa').dataset.semContrato;
+            }
+            // Depois do inicio, ja "nao precisa": so incluir quem cobre. Com quem cobre ou vaga em aberto, o "Nao precisa de cobertura"
+            // vale a partir do dia escolhido.
+            // SAF sem aceita_troca: depois do inicio tambem nao da para passar para "nao precisa" (o SAF recusaria; P7).
+            if (emAndamento && (!f.precisa_cobertura || !f.aceita_nao_precisa)) document.getElementById('mcf-nao-precisa').disabled = true;
+            atualizarModalCoberturaPrevisao();
+        }
+
+        const AVISO_EM_ANDAMENTO_PREVISAO = 'Férias em andamento: escolha quem cobre (ou marque Não precisa de cobertura) e a partir de quando (vale desse dia em diante).';
+        // Em andamento marcada como "Nao precisa" (pode ter sido decisao do gestor): o aviso diz que ela passa a precisar. Troca de quem
+        // cobre: quem sai fica com os dias ate a vespera; troca programada (quem cobre ainda nao comecou) refeita para antes do dia dele:
+        // ele nao chega a comecar.
+        const avisoEmAndamentoPrevisao = f => f.troca
+            ? `Férias em andamento com ${f.volante_nome} ${f.cobertura_inicio > new Date().toLocaleDateString('sv-SE') ? 'programado para cobrir a partir de' : 'cobrindo desde'} ${f.cobertura_inicio.split('-').reverse().join('/')}: escolha quem passa a cobrir (ou Vaga em aberto, ou marque Não precisa de cobertura) e a partir de quando. ${f.volante_nome} fica com os dias até a véspera${f.cobertura_inicio > new Date().toLocaleDateString('sv-SE') ? `; num dia antes de ${f.cobertura_inicio.split('-').reverse().join('/')}, não chega a começar` : ''}.`
+            // SAF que ainda nao aceita "Nao precisa" em andamento (aceita_nao_precisa): a caixa fica travada, o aviso nao a oferece.
+            : f.precisa_cobertura ? (f.aceita_nao_precisa ? AVISO_EM_ANDAMENTO_PREVISAO : AVISO_EM_ANDAMENTO_PREVISAO.replace(' (ou marque Não precisa de cobertura)', ''))
+            : 'Estas férias já começaram e estão como "Não precisa de cobertura". Para passarem a precisar, escolha quem cobre e a partir de quando (a cobertura conta desse dia em diante); o gestor do contrato é avisado.';
+        // Opcoes da caixa "Quem cobre" (resposta de acao=volantes). Quem ja cobre essas ferias nao entra na lista de troca:
+        // aparece so como "atual" na caixa. Em andamento so volante, transferencia ou emprestimo (e, na troca, Vaga em aberto).
+        function montarOpcoesCoberturaPrevisao(f, resposta) {
+            cobrindoOutraPrevisao = resposta.cobrindo_outra || [];
+            opcoesCoberturaPrevisao = [...(f.troca ? [{ valor: 'vaga', titulo: 'Vaga em aberto', detalhe: 'Ninguém cobre a partir do dia escolhido' }]
+                    : f.a_partir_faixa ? [] : [{ valor: 'vaga', titulo: 'Vaga em aberto' }, { valor: 'interna', titulo: 'Cobertura interna' }]),
+                ...(resposta.aceita_transferencia || f.cobertura === 'transferencia' ? [{ valor: 'transferencia', titulo: 'Transferência', detalhe: 'Quem cobre ainda vai ser transferido a volante' }] : []),
+                ...(resposta.aceita_emprestimo || f.cobertura === 'emprestimo' ? [{ valor: 'emprestimo', titulo: 'Colaborador emprestado', detalhe: 'Outro contrato emprestou quem cobre' }] : []),
+                ...resposta.volantes.filter(v => !(f.cobertura === 'volante' && v.matricula === f.volante_matricula)).map(v => ({
+                    valor: `vol:${v.matricula}`, matricula: normalizarMatricula(v.matricula), titulo: v.nome,
+                    centro_custo: v.centro_custo, funcao: v.funcao,
+                    detalhe: [formatarCentroCusto(v.centro_custo), v.funcao].filter(Boolean).join(' · ')
+                }))];
+        }
+
+        // Ferias em andamento: a lista de volantes vale do "A partir de" escolhido em diante (a API recalcula; quem estava
+        // ocupado ou ainda nao tinha sido admitido nesses dias sai). Volante ja escolhido que saiu da lista e desmarcado.
+        async function aoMudarAPartirPrevisao() {
+            const f = feriasModalPrevisao, campo = document.getElementById('mcf-apartir'), dia = campo.value;
+            if (!f?.a_partir_faixa || !dia || dia < campo.min || dia > campo.max) return;
+            let resposta;
+            try {
+                resposta = await dbPrevisaoFerias(`acao=volantes&id=${f.id}&a_partir_de=${dia}`);
+            } catch (e) {
+                if (feriasModalPrevisao === f && campo.value === dia) document.getElementById('mcf-aviso').textContent = e.message;
+                return;
+            }
+            if (feriasModalPrevisao !== f || campo.value !== dia) return; // fechou ou mudou de novo enquanto carregava
+            montarOpcoesCoberturaPrevisao(f, resposta);
+            const escolhido = document.getElementById('mcf-cobertura').value;
+            if (escolhido.startsWith('vol:') && !opcoesCoberturaPrevisao.some(o => o.valor === escolhido)) {
+                document.getElementById('mcf-cobertura').value = '';
+                document.getElementById('mcf-cobertura-busca').value = textoCoberturaPrevisao = '';
+                document.getElementById('mcf-aviso').textContent = `O volante escolhido não está livre desde ${dia.split('-').reverse().join('/')}: escolha outro.`;
+                atualizarModalCoberturaPrevisao();
+            }
+            if (document.getElementById('mcf-cobertura-lista').classList.contains('mostrando')) {
+                mostrarOpcoesCoberturaPrevisao(document.getElementById('mcf-cobertura-busca').value);
+            }
+        }
+
+        // Caixa "Quem cobre": lista igual a busca do Adicionar Colaborador; o valor escolhido fica no campo oculto mcf-cobertura.
+        let opcoesCoberturaPrevisao = [];
+        let cobrindoOutraPrevisao = []; // volantes que so nao entram por cobrir outras ferias (acao=volantes): aparecem na busca, sem escolher
+        let textoCoberturaPrevisao = '';
+        const textoOpcaoCoberturaPrevisao = o => o.matricula ? `${o.matricula} - ${o.titulo}` : o.titulo;
+        // Linha da pessoa nas listas: contrato, codigo, matricula, nome e funcao (ordem pedida); title com tudo por extenso.
+        function linhaColaboradorPrevisao(item, centroCusto, matricula, nome, funcao) {
+            const codigo = String(centroCusto || '').trim();
+            const cc = formatarCentroCusto(codigo);
+            const contrato = cc.includes(' - ') ? cc.slice(0, cc.lastIndexOf(' - ')) : (cc === codigo ? '' : cc);
+            item.title = [contrato, codigo, matricula, nome, funcao].filter(Boolean).join(' · ');
+            item.innerHTML = `<div class="linha-colab"><span>${escapeHtml(contrato || '-')}</span><span class="lc-codigo">${escapeHtml(codigo || '-')}</span>`
+                + `<span class="lc-mat">${escapeHtml(matricula)}</span><span>${escapeHtml(nome)}</span><span class="lc-funcao">${escapeHtml(funcao || '-')}</span></div>`;
+        }
+        const semAcentoPrevisao = s => String(s).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+
+        function mostrarOpcoesCoberturaPrevisao(termo) {
+            const lista = document.getElementById('mcf-cobertura-lista');
+            const busca = semAcentoPrevisao(termo.trim());
+            const achadas = opcoesCoberturaPrevisao.filter(o => semAcentoPrevisao(`${textoOpcaoCoberturaPrevisao(o)} ${o.detalhe || ''}`).includes(busca));
+            // Troca cruzada (decisao do usuario, 2026-11-09: 3 passos, com aviso): procurou um volante que cobre outras ferias nesses
+            // dias - aparece sem poder escolher, com de quem, ate quando e o caminho.
+            const cobrindo = busca.length < 2 ? [] : cobrindoOutraPrevisao.filter(v => semAcentoPrevisao(`${normalizarMatricula(v.matricula)} - ${v.nome}`).includes(busca));
+            lista.innerHTML = achadas.length || cobrindo.length ? '' : '<div class="add-resultado-item add-resultado-vazio">Nenhum colaborador encontrado.</div>';
+            achadas.forEach(o => {
+                const item = document.createElement('div');
+                item.className = 'add-resultado-item';
+                if (o.matricula) linhaColaboradorPrevisao(item, o.centro_custo, o.matricula, o.titulo, o.funcao);
+                else item.innerHTML = `<b>${escapeHtml(o.titulo)}</b>` + (o.detalhe ? `<div class="add-resultado-detalhe">${escapeHtml(o.detalhe)}</div>` : '');
+                item.onmousedown = e => { // mousedown: antes do blur da caixa fechar a lista
+                    e.preventDefault();
+                    if (feriasModalPrevisao?.a_partir_faixa) document.getElementById('mcf-aviso').textContent = avisoEmAndamentoPrevisao(feriasModalPrevisao);
+                    document.getElementById('mcf-cobertura').value = o.valor;
+                    textoCoberturaPrevisao = textoOpcaoCoberturaPrevisao(o);
+                    document.getElementById('mcf-cobertura-busca').blur();
+                    atualizarModalCoberturaPrevisao();
+                };
+                lista.appendChild(item);
+            });
+            const br = iso => iso.split('-').reverse().join('/');
+            const f = feriasModalPrevisao;
+            const dia = br(f?.a_partir_faixa ? document.getElementById('mcf-apartir').value : f?.ferias_inicio || '');
+            cobrindo.forEach(v => {
+                const outras = v.cobrindo.map(c => `${c.ferias_de ? `as férias de ${c.ferias_de}` : 'férias de outro contrato (que você não vê)'} até ${br(c.ate)}`).join('; ');
+                lista.insertAdjacentHTML('beforeend', `<div class="add-resultado-item add-resultado-vazio"><b>${escapeHtml(`${normalizarMatricula(v.matricula)} - ${v.nome}`)}</b>`
+                    + `<div class="add-resultado-detalhe">${escapeHtml(`Cobrindo ${outras}. Para trazer para cá: nessas férias, troque quem cobre por outra pessoa `
+                        + `ou Vaga em aberto (a partir de ${dia}, se já começaram); depois que o SAF aplicar (1 a 2 minutos), escolha aqui.`)}</div></div>`);
+            });
+            lista.classList.add('mostrando');
+        }
+
+        // Enter escolhe o primeiro da lista (digitou e apertou Enter). Esc: listener de keydown junto do botao de notificar.
+        function teclaCoberturaPrevisao(e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            document.querySelector('#mcf-cobertura-lista.mostrando .add-resultado-item:not(.add-resultado-vazio)')
+                ?.dispatchEvent(new MouseEvent('mousedown', { cancelable: true }));
+        }
+
+        function fecharOpcoesCoberturaPrevisao() {
+            document.getElementById('mcf-cobertura-lista').classList.remove('mostrando');
+            document.getElementById('mcf-cobertura-busca').value = textoCoberturaPrevisao; // digitou sem escolher: volta o que estava
+        }
+
+        // Busca de pessoa do painel - Transferência, Colaborador emprestado e quem vai para o posto de origem dele: qualquer colaborador
+        // ativo, menos o titular: o cadastro do CGV na hora e o Protheus ao vivo (protheus-buscar-colaborador.php, como no Adicionar
+        // colaborador) a partir de 2 letras. A Transferência esconde quem já é volante (esse se escolhe na lista de volantes); o
+        // emprestado pode ser qualquer um, até volante de outro pool. Campo: 'transf' | 'emp' | 'sub' (ids mcf-<campo>-busca/-lista).
+        const pessoaVaziaPrevisao = () => ({ escolhido: null, texto: '', protheus: { termo: '', dados: [], buscando: false, erro: '' }, espera: null });
+        const pessoasPrevisao = { transf: pessoaVaziaPrevisao(), emp: pessoaVaziaPrevisao(), sub: pessoaVaziaPrevisao() }; // escolhido: {matricula, nome}
+        let cargaCadastroPessoas = null; // uma carga so do cadastro: as teclas seguintes esperam a mesma (falhou = tenta de novo)
+        let centrosVolantePrevisao = new Set(); // quem ja e volante nao entra na transferencia (vem de acao=volantes)
+
+        async function buscarPessoaPrevisao(campo, termo) {
+            const p = pessoasPrevisao[campo];
+            const busca = semAcentoPrevisao(termo.trim());
+            if (busca.length < 2) {
+                clearTimeout(p.espera);
+                p.protheus = { termo: '', dados: [], buscando: false, erro: '' }; // redigitar busca de novo
+            } else if (p.protheus.termo !== busca) {
+                clearTimeout(p.espera);
+                p.protheus = { termo: busca, dados: [], buscando: true, erro: '' };
+                p.espera = setTimeout(async () => {
+                    let dados = [], erro = '';
+                    try {
+                        const resp = await fetch(`../backend/api/protheus-buscar-colaborador.php?termo=${encodeURIComponent(busca)}`,
+                            { headers: { 'X-Session-Token': tokenSessaoAtual() } });
+                        const corpo = await resp.json().catch(() => ({}));
+                        if (resp.ok && !corpo.error) dados = corpo.dados || [];
+                        else erro = corpo.error || `HTTP ${resp.status}`;
+                    } catch (e) {
+                        console.error(`Busca no Protheus (${campo}):`, e);
+                        erro = 'sem conexão';
+                    }
+                    if (p.protheus.termo !== busca) return; // ja digitou outra coisa
+                    p.protheus = { termo: busca, dados, buscando: false, erro };
+                    if (document.activeElement?.id === `mcf-${campo}-busca`) mostrarPessoaPrevisao(campo, busca);
+                }, 400);
+            }
+            if (!dadosVolantesGeral.length) {
+                cargaCadastroPessoas ??= carregarBancoDadosVolantes().finally(() => { cargaCadastroPessoas = null; });
+                await cargaCadastroPessoas;
+            }
+            if (document.activeElement?.id === `mcf-${campo}-busca`) mostrarPessoaPrevisao(campo, busca);
+        }
+
+        function mostrarPessoaPrevisao(campo, busca) {
+            const p = pessoasPrevisao[campo];
+            const lista = document.getElementById(`mcf-${campo}-lista`);
+            lista.innerHTML = '';
+            lista.classList.add('mostrando');
+            const aviso = texto => lista.insertAdjacentHTML('beforeend', `<div class="add-resultado-item add-resultado-vazio">${escapeHtml(texto)}</div>`);
+            if (busca.length < 2) return aviso('Digite ao menos 2 letras da matrícula ou do nome.');
+            // Fora da lista: o titular e, no emprestimo, a outra pessoa (o emprestado nao vai para o proprio posto de origem).
+            const outro = { emp: pessoasPrevisao.sub.escolhido, sub: pessoasPrevisao.emp.escolhido }[campo];
+            const fora = new Set([normalizarMatricula(feriasModalPrevisao?.titular_matricula), normalizarMatricula(outro?.matricula)].filter(Boolean));
+            const ativos = dadosVolantesGeral.filter(r => !r.desligamento);
+            const ehVolante = r => campo === 'transf' && centrosVolantePrevisao.has(String(r.centro_custo || '').trim().toUpperCase());
+            // Quem ja e volante se escolhe na lista de volantes (respeita o pool do Gestor e o Ajuste Tabelas); o cadastro do CGV decide.
+            const jaVolante = new Set(ativos.filter(ehVolante).map(r => normalizarMatricula(r.matricula)));
+            const achados = new Map(); // matricula -> pessoa (cadastro do CGV primeiro)
+            const doProtheus = p.protheus.termo === busca ? p.protheus.dados : [];
+            [...ativos, ...doProtheus].forEach(r => {
+                const mat = normalizarMatricula(r.matricula);
+                if (!mat || fora.has(mat) || achados.has(mat) || jaVolante.has(mat) || ehVolante(r)
+                    || !semAcentoPrevisao(`${String(r.matricula).trim()} ${mat} ${r.nome}`).includes(busca)) return; // matricula com e sem zeros
+                achados.set(mat, { matricula: String(r.matricula).trim(), nome: String(r.nome || '').trim(), centro_custo: r.centro_custo, funcao: r.funcao });
+            });
+            const pessoas = [...achados.values()].slice(0, 30);
+            // Emprestado vem de OUTRO contrato (decisao do usuario, 2026-11-09): colega do mesmo contrato do titular aparece, mas sem poder
+            // escolher (e Cobertura interna). O servidor e o SAF tambem recusam.
+            const centroTitular = String(feriasModalPrevisao?.titular_centro_custo || '').trim().toUpperCase();
+            pessoas.forEach(r => {
+                if (campo === 'emp' && centroTitular && String(r.centro_custo || '').trim().toUpperCase() === centroTitular) {
+                    return aviso(`${normalizarMatricula(r.matricula)} - ${r.nome}: é do mesmo contrato do titular (use Cobertura interna).`);
+                }
+                const item = document.createElement('div');
+                item.className = 'add-resultado-item';
+                linhaColaboradorPrevisao(item, r.centro_custo, normalizarMatricula(r.matricula), r.nome, r.funcao);
+                item.onmousedown = e => {
+                    e.preventDefault();
+                    p.escolhido = { matricula: r.matricula, nome: r.nome };
+                    p.texto = `${normalizarMatricula(r.matricula)} - ${r.nome}`;
+                    document.getElementById(`mcf-${campo}-busca`).blur();
+                };
+                lista.appendChild(item);
+            });
+            if (p.protheus.buscando) aviso('Buscando também no Protheus...');
+            else if (p.protheus.erro) aviso(`Não foi possível buscar no Protheus (${p.protheus.erro.replace(/[.\s]+$/, '')}): ${pessoas.length ? 'mostrando só' : 'nada encontrado'} no cadastro do CGV.`);
+            else if (!pessoas.length) aviso('Nenhum colaborador encontrado.');
+        }
+
+        function fecharPessoaPrevisao(campo) {
+            document.getElementById(`mcf-${campo}-lista`).classList.remove('mostrando');
+            document.getElementById(`mcf-${campo}-busca`).value = pessoasPrevisao[campo].texto; // digitou sem escolher: volta o que estava
+        }
+
+        function teclaPessoaPrevisao(campo, e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            document.querySelector(`#mcf-${campo}-lista.mostrando .add-resultado-item:not(.add-resultado-vazio)`)
+                ?.dispatchEvent(new MouseEvent('mousedown', { cancelable: true }));
+        }
+
+        function travarModalCoberturaPrevisao(travar) {
+            ['mcf-nao-precisa', 'mcf-cobertura-busca', 'mcf-motivo', 'mcf-transf-busca', 'mcf-transf-link', 'mcf-emp-busca', 'mcf-emp-substituir', 'mcf-sub-busca',
+                'mcf-apartir', 'mcf-salvar']
+                .forEach(id => { document.getElementById(id).disabled = travar; });
+        }
+
+        function atualizarModalCoberturaPrevisao() {
+            const precisa = !document.getElementById('mcf-nao-precisa').checked;
+            const semContrato = document.getElementById('mcf-nao-precisa').dataset.semContrato === '1';
+            document.getElementById('mcf-bloco-cobertura').style.display = precisa && !semContrato ? '' : 'none';
+            document.getElementById('mcf-motivo').style.display = document.getElementById('mcf-cobertura').value === 'interna' ? '' : 'none';
+            document.getElementById('mcf-bloco-transferencia').style.display = document.getElementById('mcf-cobertura').value === 'transferencia' ? '' : 'none';
+            document.getElementById('mcf-bloco-emprestimo').style.display = document.getElementById('mcf-cobertura').value === 'emprestimo' ? '' : 'none';
+            document.getElementById('mcf-bloco-substituto').style.display = document.getElementById('mcf-emp-substituir').checked ? '' : 'none';
+            if (semContrato && precisa) document.getElementById('mcf-salvar').disabled = true;
+            // Em andamento ja "nao precisa" sem o contrato na lista nao ha o que enviar (la so se inclui quem cobre, e o SAF recusaria).
+            else if (semContrato) document.getElementById('mcf-salvar').disabled = !!feriasModalPrevisao?.a_partir_faixa && !feriasModalPrevisao.precisa_cobertura;
+        }
+
+        function fecharModalCoberturaPrevisao() {
+            feriasModalPrevisao = null;
+            document.getElementById('mcf-whats-menu').classList.remove('mostrando');
+            document.getElementById('modal-cobertura-ferias').style.display = 'none';
+        }
+
+        // Para o contrato: nao ha numero, entao abre a Notificacao (filtro.js) em CONTRATO ja com o volante escolhido.
+        // Para o colaborador: abre o wa.me com a mensagem de COBERTURA pronta, no numero do cadastro se houver.
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#mcf-whats, #mcf-whats-menu')) document.getElementById('mcf-whats-menu').classList.remove('mostrando');
+        });
+        // Esc uma camada por vez, antes do Esc global de filtro.js (que fecharia o painel de ferias inteiro):
+        // Notificacao aberta por cima (campo com foco nela: so tira o foco, sem perder o que foi digitado), depois o menu do
+        // sino, depois um campo do painel de ferias (busca desiste e volta o que estava; texto so perde o foco).
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape' && e.key !== 'Esc') return;
+            const notificacao = document.getElementById('modal-notificacao-cobertura');
+            const menu = document.getElementById('mcf-whats-menu');
+            const painel = document.getElementById('modal-cobertura-ferias');
+            const noCampo = document.activeElement?.matches('input:not([type=checkbox]), textarea');
+            if (notificacao && getComputedStyle(notificacao).display !== 'none' && noCampo && notificacao.contains(document.activeElement)) {
+                document.activeElement.blur();
+                notificacao.querySelectorAll('.notif-resultados-busca.mostrando').forEach(l => l.classList.remove('mostrando'));
+            }
+            else if (notificacao && getComputedStyle(notificacao).display !== 'none') fecharModalNotificacao();
+            else if (menu.classList.contains('mostrando')) menu.classList.remove('mostrando');
+            else if (noCampo && painel.contains(document.activeElement)) document.activeElement.blur();
+            else return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }, true);
+
+        // Clique repetido enquanto o aviso ainda esta sendo montado nao faz nada (criaria o mesmo contrato duas vezes).
+        let avisandoPrevisao = false;
+        async function avisarWhatsPrevisao(tipo) {
+            document.getElementById('mcf-whats-menu').classList.remove('mostrando');
+            const f = feriasModalPrevisao;
+            if (!f || avisandoPrevisao) return;
+            // Troca aguardando o SAF: o painel ainda mostra o volante antigo, e o aviso iria pra pessoa errada.
+            if (f.pendente_desde) {
+                mostrarToast('Há uma alteração aguardando o SAF. Notifique depois que ela for aplicada.', '#e74c3c');
+                return;
+            }
+            const valor = document.getElementById('mcf-cobertura').value;
+            const matricula = valor.startsWith('vol:') ? valor.slice(4)
+                : valor === 'transferencia' || valor === 'emprestimo' ? (pessoasPrevisao[valor === 'transferencia' ? 'transf' : 'emp'].escolhido?.matricula || '')
+                : (!valor && f.cobertura === 'volante' ? f.volante_matricula : '');
+            if (document.getElementById('mcf-nao-precisa').checked || !matricula) {
+                mostrarToast('Escolha um volante em "Quem cobre" para notificar.', '#e74c3c');
+                return;
+            }
+            avisandoPrevisao = true;
+            // Abre antes de qualquer await (depois dele o navegador bloqueia o pop-up), sem ligacao com a aba do CGV (opener).
+            const janela = tipo === 'colaborador' ? window.open('', '_blank') : null;
+            if (janela) janela.opener = null;
+            try {
+                await montarAvisoPrevisao(tipo, f, valor, matricula, janela);
+            } catch (e) {
+                console.error('Erro ao montar o aviso:', e);
+                janela?.close();
+                mostrarToast('Não foi possível montar o aviso. Tente de novo.', '#e74c3c');
+            } finally {
+                avisandoPrevisao = false;
+            }
+        }
+
+        async function montarAvisoPrevisao(tipo, f, valor, matricula, janela) {
+            let contratosCarregados = false;
+            if (tipo === 'contrato') {
+                const toggle = document.getElementById('toggle-tipo-notificacao'); // CTR antes de abrir: senao a tela COB pisca
+                toggle.checked = true;
+                toggle.dispatchEvent(new Event('change'));
+                await abrirModalNotificacao(); // carrega colaboradores e contratos
+            } else {
+                // Sem guardar a carga: se falhou (lista vazia), tenta de novo; contratos sempre, pra ver os criados agora.
+                const [, contratos] = await Promise.allSettled([dadosVolantesGeral.length ? null : carregarBancoDadosVolantes(), carregarBancoNotificacao()]);
+                contratosCarregados = contratos.value === true;
+            }
+
+            const doVolante = dadosVolantesGeral.filter(r => normalizarMatricula(r.matricula) === normalizarMatricula(matricula));
+            const escolhido = opcoesCoberturaPrevisao.find(o => o.valor === valor);
+            const nomeEscolhido = valor === 'transferencia' ? pessoasPrevisao.transf.escolhido?.nome : valor === 'emprestimo' ? pessoasPrevisao.emp.escolhido?.nome
+                : escolhido ? escolhido.titulo : f.volante_nome;
+            const reg = { ...(doVolante.find(r => !r.desligamento) || doVolante[0] || { matricula, nome: nomeEscolhido }) };
+            reg.contato = reg.contato || doVolante.find(r => r.contato)?.contato || '';
+            if (tipo === 'contrato') {
+                selecionarColaboradorContrato(reg);
+                return;
+            }
+            const br = iso => iso.split('-').reverse().join('/');
+            // Contrato da lista da Notificacao pelo codigo do centro ("Nome - Codigo", como a celula CONTRATO grava);
+            // linha antiga digitada a mao ainda vale pelo nome. Nao esta na lista: ja cria, pro RH completar em Verificar lista.
+            const codigo = String(f.titular_centro_custo || '').trim();
+            const cc = formatarCentroCusto(codigo);
+            const nomeCentro = cc.includes(' - ') ? cc.slice(0, cc.lastIndexOf(' - ')) : cc;
+            const codigoDe = t => normalizarTexto(String(t).includes(' - ') ? String(t).slice(String(t).lastIndexOf(' - ') + 3) : t);
+            let linha = dadosNotificacaoVolante.slice(1).find(l => l[0] && (codigoDe(l[0]) === normalizarTexto(codigo)
+                || [cc, nomeCentro].map(normalizarTexto).includes(normalizarTexto(l[0]))));
+            if (!linha && codigo && contratosCarregados) { // lista que nao carregou nao quer dizer que o contrato falta
+                linha = [cc, '', '', ''];
+                try {
+                    const { ids } = await dbSalvarLote('contratos_notificacao', [{ contrato: cc, responsavel: '', telefone: '', localizacao: '' }]);
+                    dadosNotificacaoVolante.push(linha);
+                    idsNotificacaoVolante.push(...ids);
+                } catch (e) {
+                    console.error('Erro ao criar o contrato na lista da Notificacao:', e);
+                }
+            }
+            linha = linha || [];
+            // Inicio da cobertura de quem recebe o aviso: ferias em andamento conta do "A partir de" escolhido (ou, avisando quem ja cobre,
+            // do dia em que ele comecou), nao do inicio das ferias.
+            const inicioCobertura = !f.a_partir_faixa ? f.ferias_inicio : (valor ? document.getElementById('mcf-apartir').value : f.cobertura_inicio) || f.ferias_inicio;
+            const texto = textoAlertaCobertura({ contrato: linha[0] || cc, responsavel: linha[1] || '', telefone: linha[2] || '',
+                localizacao: linha[3] || '', inicio: br(inicioCobertura), termino: br(f.ferias_fim), escala: f.escala || '', nota: f.nota?.texto || '' });
+            let numero = reg.contato.replace(/\D/g, '');
+            if (numero.length === 10 || numero.length === 11) numero = '55' + numero;
+            if (!/^55\d{10,11}$/.test(numero)) numero = '';
+            // api.whatsapp.com direto: o redirecionamento do wa.me troca os emojis por "\uFFFD".
+            const url = `https://api.whatsapp.com/send?${numero ? `phone=${numero}&` : ''}text=${encodeURIComponent(texto)}`;
+            if (janela) janela.location.href = url; else window.open(url, '_blank', 'noopener');
+        }
+
+        async function salvarModalCoberturaPrevisao() {
+            const f = feriasModalPrevisao;
+            if (!f) return;
+            const precisa = !document.getElementById('mcf-nao-precisa').checked;
+            const valor = document.getElementById('mcf-cobertura').value;
+            if (precisa && !valor) {
+                // Valor vazio com volante no SAF = o atual continua escolhido (ele nao entra na lista de troca).
+                document.getElementById('mcf-aviso').textContent = precisa === f.precisa_cobertura && f.cobertura === 'volante'
+                    ? 'Nada foi alterado.' : 'Escolha quem vai cobrir as férias.';
+                return;
+            }
+            const link = document.getElementById('mcf-transf-link').value.trim();
+            const aPartirDe = document.getElementById('mcf-apartir').value;
+            if (f.a_partir_faixa) {
+                const [min, max] = f.a_partir_faixa;
+                const br = iso => iso.split('-').reverse().join('/');
+                const erro = precisa && !(valor.startsWith('vol:') || valor === 'transferencia' || valor === 'emprestimo' || (f.troca && valor === 'vaga'))
+                    ? (f.troca ? 'Escolha quem passa a cobrir: um volante, uma transferência, um colaborador emprestado ou Vaga em aberto.'
+                        : 'Escolha quem vai cobrir: um volante, uma transferência ou um colaborador emprestado.')
+                    : !aPartirDe || aPartirDe < min || aPartirDe > max ? `Escolha o "A partir de" entre ${br(min)} e ${br(max)}.` : '';
+                if (erro) { document.getElementById('mcf-aviso').textContent = erro; return; }
+            }
+            if (precisa && valor === 'transferencia') {
+                const erro = !pessoasPrevisao.transf.escolhido ? 'Escolha quem vai cobrir (será transferido a volante).'
+                    : !/^https?:\/\/[^\s"'<>`\\]+$/i.test(link) || link.length > 240
+                        ? 'Informe o link da transferência: começando com http:// ou https://, sem espaços, até 240 caracteres.' : '';
+                if (erro) { document.getElementById('mcf-aviso').textContent = erro; return; }
+            }
+            // Colaborador emprestado: quem vem e, se o posto de origem precisa ser substituido, quem vai para la (outra pessoa).
+            const substituir = document.getElementById('mcf-emp-substituir').checked;
+            const emprestado = pessoasPrevisao.emp.escolhido, substituto = substituir ? pessoasPrevisao.sub.escolhido : null;
+            if (precisa && valor === 'emprestimo') {
+                const erro = !emprestado ? 'Escolha quem vem emprestado.'
+                    : substituir && !substituto ? 'Escolha quem vamos enviar ao posto de origem.'
+                    : substituto && normalizarMatricula(substituto.matricula) === normalizarMatricula(emprestado.matricula)
+                        ? 'Quem vai para o posto de origem tem que ser outra pessoa, não o próprio emprestado.' : '';
+                if (erro) { document.getElementById('mcf-aviso').textContent = erro; return; }
+            }
+            // Igual ao que ja esta no SAF: nao manda pedido a toa.
+            const motivo = document.getElementById('mcf-motivo').value;
+            const mesmaTransferencia = valor !== 'transferencia' || (normalizarMatricula(pessoasPrevisao.transf.escolhido?.matricula) === normalizarMatricula(f.volante_matricula)
+                && link === (f.transferencia_link || ''));
+            const mesmoEmprestimo = valor !== 'emprestimo' || (normalizarMatricula(emprestado?.matricula) === normalizarMatricula(f.volante_matricula)
+                && normalizarMatricula(substituto?.matricula) === normalizarMatricula(f.substituto_matricula));
+            if (precisa === f.precisa_cobertura && (!precisa || (valor === f.cobertura && mesmaTransferencia && mesmoEmprestimo
+                && (valor !== 'interna' || motivo.trim() === (f.motivo_interna || '').trim())))) {
+                document.getElementById('mcf-aviso').textContent = 'Nada foi alterado.';
+                return;
+            }
+            // "Nao precisa" que ja comecou passando a precisar: confirma antes (pode ter sido decisao do gestor, que o SAF avisa).
+            if (precisa && !f.precisa_cobertura && f.a_partir_faixa) {
+                const quem = valor.startsWith('vol:') ? opcoesCoberturaPrevisao.find(o => o.valor === valor)?.titulo
+                    : pessoasPrevisao[valor === 'transferencia' ? 'transf' : 'emp'].escolhido?.nome;
+                if (!confirm(`As férias de ${f.titular_nome} estão como "Não precisa de cobertura". Enviar ao SAF para passarem a precisar, `
+                    + `com ${quem || 'quem você escolheu'} cobrindo a partir de ${aPartirDe.split('-').reverse().join('/')}? O gestor do contrato é avisado.`)) return;
+            }
+            // Vaga em aberto que ja comecou passando a "nao precisa" (decisao do usuario, 2026-11-09): confirma o dia.
+            if (!precisa && f.precisa_cobertura && f.a_partir_faixa && !f.troca
+                && !confirm(`As férias de ${f.titular_nome} estão como Vaga em aberto. Enviar ao SAF para passarem a "Não precisa de cobertura" `
+                    + `a partir de ${aPartirDe.split('-').reverse().join('/')}? O gestor do contrato é avisado.`)) return;
+            // So o link da mesma transferencia (decisao do usuario, 2026-11-10): nao e troca - o SAF grava so o link, sem trecho nem aviso.
+            const soLink = f.troca && valor === 'transferencia' && f.cobertura === 'transferencia'
+                && normalizarMatricula(pessoasPrevisao.transf.escolhido?.matricula) === normalizarMatricula(f.volante_matricula);
+            if (soLink && !confirm(`Corrigir o link da transferência de ${f.volante_nome}? Quem cobre e as datas continuam como estão, e o gestor não é avisado.`)) return;
+            // So o substituto do mesmo emprestado (decisao do usuario, 2026-11-11): o emprestado continua; o SAF guarda os dias do anterior.
+            const soSubstituto = f.troca && valor === 'emprestimo' && f.cobertura === 'emprestimo'
+                && normalizarMatricula(emprestado?.matricula) === normalizarMatricula(f.volante_matricula);
+            if (soSubstituto && !confirm(`Trocar o substituto no posto de origem de ${f.volante_nome} a partir de ${aPartirDe.split('-').reverse().join('/')}?\n\n`
+                + `Sai: ${f.substituto_nome || 'nenhum'}. Entra: ${substituto?.nome || 'nenhum'}.\n${f.volante_nome} continua cobrindo. O gestor do contrato é avisado.`)) return;
+            // Troca de quem cobre: confirma os periodos antes. Quem sai fica com os dias ate a vespera; num dia ate o dele, nao fica com
+            // nenhum (troca programada: nao chega a comecar). Antes do dia dele, o trecho de quem cobria antes, colado nele, termina na
+            // vespera (ou e desfeito, no primeiro dia dele) - igual ao SAF (aplicar-pedidos-cgv.php).
+            if (f.troca && !soLink && !soSubstituto) {
+                const br = iso => iso.split('-').reverse().join('/');
+                const quem = !precisa ? 'Não precisa de cobertura' : valor === 'vaga' ? 'Vaga em aberto' : valor.startsWith('vol:') ? opcoesCoberturaPrevisao.find(o => o.valor === valor)?.titulo
+                    : pessoasPrevisao[valor === 'transferencia' ? 'transf' : 'emp'].escolhido?.nome;
+                const vespera = iso => new Date(new Date(iso + 'T12:00').getTime() - 864e5).toLocaleDateString('sv-SE');
+                const ultimo = (f.coberturas_anteriores || []).reduce((u, t) => !u || t.ate > u.ate ? t : u, null);
+                const linhas = [aPartirDe > f.cobertura_inicio ? `${f.volante_nome}: de ${br(f.cobertura_inicio)} a ${br(vespera(aPartirDe))}.`
+                    : f.cobertura_inicio > new Date().toLocaleDateString('sv-SE') ? `${f.volante_nome} (programado a partir de ${br(f.cobertura_inicio)}) não chega a começar.`
+                    : `${f.volante_nome} fica sem nenhum dia destas férias.`];
+                if (ultimo && aPartirDe <= ultimo.ate && vespera(f.cobertura_inicio) === ultimo.ate) {
+                    linhas.push(aPartirDe > ultimo.desde ? `${ultimo.nome}: de ${br(ultimo.desde)} a ${br(vespera(aPartirDe))} (antes até ${br(ultimo.ate)}).`
+                        : `${ultimo.nome}: o trecho de ${br(ultimo.desde)} a ${br(ultimo.ate)} é desfeito.`);
+                }
+                linhas.push(`${quem || 'Quem você escolheu'}: a partir de ${br(aPartirDe)}.`);
+                if (!confirm(`Trocar quem cobre as férias de ${f.titular_nome}?\n\n${linhas.join('\n')}\n\nO gestor do contrato é avisado.`)) return;
+            }
+            const botao = document.getElementById('mcf-salvar');
+            botao.disabled = true;
+            try {
+                await dbPrevisaoFerias('acao=alterar', {
+                    id: f.id,
+                    precisa_cobertura: precisa,
+                    cobertura: valor.startsWith('vol:') ? 'volante' : valor,
+                    volante_matricula: valor.startsWith('vol:') ? valor.slice(4) : valor === 'transferencia' ? pessoasPrevisao.transf.escolhido?.matricula || ''
+                        : valor === 'emprestimo' ? emprestado?.matricula || '' : '',
+                    volante_nome: valor === 'transferencia' ? pessoasPrevisao.transf.escolhido?.nome || '' : valor === 'emprestimo' ? emprestado?.nome || '' : '',
+                    link: valor === 'transferencia' ? link : '',
+                    ...(valor === 'emprestimo' ? { posto_substituido: !!substituto, substituto_matricula: substituto?.matricula || '', substituto_nome: substituto?.nome || '' } : {}),
+                    ...(f.a_partir_faixa ? { a_partir_de: aPartirDe } : {}),
+                    motivo
+                });
+                f.pendente_desde = new Date().toLocaleString('sv-SE'); // "AAAA-MM-DD HH:MM:SS" na hora local, igual ao servidor
+                fecharModalCoberturaPrevisao();
+                renderizarPrevisao(true);
+                mostrarToast('Alteração enviada ao SAF. Em 1 a 2 minutos ela aparece aqui (atualize a página).', '#27ae60');
+            } catch (e) {
+                document.getElementById('mcf-aviso').textContent = e.message;
+                mostrarToast(e.message, '#e74c3c');
+                botao.disabled = false;
+            }
+        }
+
+        // ==========================================
+        // NOTA DA ABA VOLANTES OCIOSOS (pedido do usuario, 2026-11-09). Botao direito na linha: "Adicionar nota" ("Alterar nota" se ja
+        // tiver) ou "Multi selecao" (clique marca/desmarca linhas; o mesmo texto vai para todas as marcadas, trocando a nota que ja
+        // houver). 1 nota por volante POR MES (o mes aberto), gravada no servidor (previsao-ferias.php?acao=nota) por quem ve a aba; o
+        // mouse em cima da linha mostra a data, quem escreveu e o texto. Alterar e salvar em branco apaga a nota do mes.
+        // O Preposto (que nao ve essa aba) tem a mesma nota na aba Ferias - Precisa de Cobertura (pedido do usuario, 2026-11-13): 1 por
+        // ferias do SAF, sem mes (previsao-ferias.php?acao=nota_ferias); RH/Admin/Gestor veem o icone, o texto no mouse e no painel da
+        // ferias, e ela vai na mensagem do WhatsApp para o colaborador. Cada perfil escreve nota numa aba so.
+        // ==========================================
+        const ICONE_NOTA_OCIOSOS = '<svg class="nota-ocioso-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3.5h10l4 4v13H5z"/><path d="M8.5 11h7M8.5 14.5h7M8.5 7.5h3"/></svg>';
+        const notaNasFerias = souPreposto();
+        const LINHA_NOTA = notaNasFerias ? 'tr[data-nota]' : 'tr[data-mat]';
+        let linhaMenuNotaOciosos = '';   // linha do botao direito: matricula (Volantes Ociosos) ou id da ferias (Preposto)
+        let notaOciososEdicao = null;     // {matriculas, multi, mes} do painel aberto (no Preposto, matriculas = ids das ferias)
+
+        function dataNotaOciosos(em) { return String(em || '').slice(0, 10).split('-').reverse().join('/'); }
+        function volanteNotaOciosos(matricula) { return volantesPrevisao.find(v => v.matricula === matricula); }
+        function mesNotaOciosos() { return `${anoSelecionadoPrevisao}-${String(mesSelecionadoPrevisao).padStart(2, '0')}`; } // AAAA-MM aberto
+        function nomeMesOciosos(mes) { const [ano, m] = mes.split('-').map(Number); return `${NOMES_MESES_PREVISAO[m - 1]} ${ano}`; }
+        function notaDoMesOciosos(v) { return v?.notas?.[mesNotaOciosos()] || null; }
+        // Chave da linha, item dela (o volante ou, no Preposto, a ferias) e a nota do item (a do mes aberto ou a da ferias).
+        function chaveLinhaNota(tr) { return notaNasFerias ? tr.dataset.nota : tr.dataset.mat; }
+        function itemNota(chave) { return notaNasFerias ? dadosCoberturaFeriasGlobais.find(f => String(f.id) === chave) : volanteNotaOciosos(chave); }
+        function notaDoItem(it) { return notaNasFerias ? it?.nota || null : notaDoMesOciosos(it); }
+        // So o que esta na tela entra na nota: linha marcada que um filtro escondeu fica de fora.
+        function marcadasNotaOciosos() {
+            return [...corpoOciosos.querySelectorAll('tr.nota-selecionada')].map(chaveLinhaNota);
+        }
+
+        const corpoOciosos = document.getElementById(notaNasFerias ? 'table-body-com-cobertura' : 'table-body-ociosos');
+        corpoOciosos.addEventListener('contextmenu', e => {
+            const tr = e.target.closest(LINHA_NOTA);
+            if (!tr) return;
+            e.preventDefault();
+            linhaMenuNotaOciosos = chaveLinhaNota(tr);
+            if (selecaoNotaOciosos) { // na multi selecao o botao direito tambem marca a linha
+                selecaoNotaOciosos.add(linhaMenuNotaOciosos);
+                tr.classList.add('nota-selecionada');
+                atualizarBarraNotaOciosos();
+            }
+            const qtd = marcadasNotaOciosos().length;
+            document.getElementById('mno-nota').textContent = selecaoNotaOciosos ? `Adicionar nota (${qtd} ${qtd === 1 ? 'linha' : 'linhas'})`
+                : notaDoItem(itemNota(linhaMenuNotaOciosos)) ? 'Alterar nota' : 'Adicionar nota';
+            document.getElementById('mno-multi').textContent = selecaoNotaOciosos ? 'Sair da multi seleção' : 'Multi seleção';
+            document.getElementById('mno-historico').style.display = selecaoNotaOciosos || notaNasFerias ? 'none' : ''; // historico e de 1 volante
+            const menu = document.getElementById('menu-nota-ociosos');
+            menu.style.display = 'block';
+            menu.style.left = Math.max(8, Math.min(e.clientX, innerWidth - menu.offsetWidth - 8)) + 'px';
+            menu.style.top = Math.max(8, Math.min(e.clientY, innerHeight - menu.offsetHeight - 8)) + 'px';
+            document.getElementById('mno-nota').focus();
+        });
+        corpoOciosos.addEventListener('click', e => {
+            const tr = e.target.closest(LINHA_NOTA);
+            if (!tr || !selecaoNotaOciosos) return;
+            const mat = chaveLinhaNota(tr);
+            if (selecaoNotaOciosos.has(mat)) selecaoNotaOciosos.delete(mat); else selecaoNotaOciosos.add(mat);
+            tr.classList.toggle('nota-selecionada', selecaoNotaOciosos.has(mat));
+            atualizarBarraNotaOciosos();
+        });
+        function fecharMenuNotaOciosos() { document.getElementById('menu-nota-ociosos').style.display = 'none'; }
+        document.addEventListener('click', e => { if (!e.target.closest('#menu-nota-ociosos')) fecharMenuNotaOciosos(); });
+        document.addEventListener('contextmenu', e => { if (!corpoOciosos.contains(e.target) || !e.target.closest(LINHA_NOTA)) fecharMenuNotaOciosos(); });
+        window.addEventListener('scroll', fecharMenuNotaOciosos, true);
+        window.addEventListener('resize', fecharMenuNotaOciosos);
+        // Esc fecha o menu antes do Esc de filtro.js.
+        document.addEventListener('keydown', e => {
+            if ((e.key !== 'Escape' && e.key !== 'Esc') || document.getElementById('menu-nota-ociosos').style.display !== 'block') return;
+            fecharMenuNotaOciosos();
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }, true);
+
+        function atualizarBarraNotaOciosos() {
+            corpoOciosos.classList.toggle('multi-selecao', !!selecaoNotaOciosos);
+            document.getElementById('barra-nota-ociosos').style.display = selecaoNotaOciosos ? 'flex' : 'none';
+            const qtd = marcadasNotaOciosos().length;
+            document.getElementById('barra-nota-ociosos-texto').textContent = `Multi seleção: ${qtd === 1 ? '1 linha marcada' : `${qtd} linhas marcadas`}`;
+        }
+        function alternarMultiSelecaoNota() {
+            fecharMenuNotaOciosos();
+            if (selecaoNotaOciosos) return sairMultiSelecaoNota();
+            selecaoNotaOciosos = new Set([linhaMenuNotaOciosos]);
+            [...corpoOciosos.querySelectorAll(LINHA_NOTA)].find(tr => chaveLinhaNota(tr) === linhaMenuNotaOciosos)?.classList.add('nota-selecionada');
+            atualizarBarraNotaOciosos();
+        }
+        function sairMultiSelecaoNota() {
+            if (!selecaoNotaOciosos) return;
+            selecaoNotaOciosos = null;
+            corpoOciosos.querySelectorAll('tr.nota-selecionada').forEach(tr => tr.classList.remove('nota-selecionada'));
+            atualizarBarraNotaOciosos();
+        }
+
+        function abrirModalNotaOciosos() {
+            fecharMenuNotaOciosos();
+            const multi = !!selecaoNotaOciosos;
+            const volantes = (multi ? marcadasNotaOciosos() : [linhaMenuNotaOciosos]).map(itemNota).filter(Boolean);
+            if (!volantes.length) return mostrarToast('Marque pelo menos uma linha.', '#e74c3c');
+            notaOciososEdicao = { matriculas: volantes.map(v => notaNasFerias ? String(v.id) : v.matricula), multi, mes: mesNotaOciosos() };
+            const comNota = volantes.filter(notaDoItem);
+            const [um, varios] = notaNasFerias ? ['colaborador', 'colaboradores'] : ['volante', 'volantes'];
+            // Preposto: a nota e da ferias (sem mes); cada um com o periodo das ferias.
+            document.getElementById('mno-titulo').textContent = (multi ? `Nota para ${volantes.length} ${volantes.length === 1 ? um : varios}`
+                : comNota.length ? 'Alterar nota' : 'Adicionar nota') + (notaNasFerias ? '' : ` · ${nomeMesOciosos(mesNotaOciosos())}`);
+            document.getElementById('mno-quem').textContent = volantes.map(v => notaNasFerias
+                ? `${normalizarMatricula(v.titular_matricula)} - ${v.titular_nome} (férias de ${dataNotaOciosos(v.ferias_inicio)} a ${dataNotaOciosos(v.ferias_fim)})`
+                : `${normalizarMatricula(v.matricula)} - ${v.nome}`).join(' · ');
+            document.getElementById('mno-texto').value = !multi && comNota.length ? notaDoItem(comNota[0]).texto : '';
+            document.getElementById('mno-aviso').textContent = !multi
+                ? (comNota.length ? `Nota de ${dataNotaOciosos(notaDoItem(comNota[0]).em)}. Para tirar a nota, apague o texto e salve.` : '')
+                : comNota.length ? `${comNota.length === 1 ? '1 deles já tem nota' : `${comNota.length} deles já têm nota`}: o texto novo substitui a que existe.` : '';
+            document.getElementById('mno-salvar').disabled = false;
+            document.getElementById('modal-nota-ociosos').style.display = 'flex';
+            document.getElementById('mno-texto').focus();
+        }
+        function fecharModalNotaOciosos() {
+            notaOciososEdicao = null;
+            document.getElementById('modal-nota-ociosos').style.display = 'none';
+        }
+        async function salvarNotaOciosos() {
+            const edicao = notaOciososEdicao;
+            if (!edicao) return;
+            const texto = document.getElementById('mno-texto').value.trim();
+            // Em branco so apaga a nota de UMA linha (Alterar nota); na multi selecao nao apaga varias de uma vez.
+            const temNota = notaNasFerias ? !!itemNota(edicao.matriculas[0])?.nota : !!volanteNotaOciosos(edicao.matriculas[0])?.notas?.[edicao.mes];
+            if (!texto && (edicao.multi || !temNota)) {
+                document.getElementById('mno-aviso').textContent = 'Escreva a nota.';
+                return;
+            }
+            const botao = document.getElementById('mno-salvar');
+            botao.disabled = true;
+            try {
+                const { em, por } = notaNasFerias
+                    ? await dbPrevisaoFerias('acao=nota_ferias', { ids: edicao.matriculas.map(Number), texto })
+                    : await dbPrevisaoFerias('acao=nota', { matriculas: edicao.matriculas, mes: edicao.mes, texto });
+                edicao.matriculas.forEach(m => {
+                    if (notaNasFerias) {
+                        const f = itemNota(m);
+                        if (f) f.nota = texto ? { texto, em, por } : null;
+                        return;
+                    }
+                    const v = volanteNotaOciosos(m);
+                    if (!v) return;
+                    v.notas = { ...v.notas, [edicao.mes]: { texto, em, por } };
+                    if (!texto) delete v.notas[edicao.mes];
+                });
+                fecharModalNotaOciosos();
+                sairMultiSelecaoNota();
+                renderizarPrevisao(true);
+                mostrarToast(texto ? 'Nota salva.' : 'Nota apagada.', '#27ae60');
+            } catch (e) {
+                document.getElementById('mno-aviso').textContent = e.message;
+                botao.disabled = false;
+            }
+        }
+
+        // ==========================================
+        // HISTORICO DE OBSERVACAO (pedido do usuario, 2026-11-09). Botao direito na linha de Volantes Ociosos (o volante da linha) ou
+        // botao "Historico de observacao" da aba (escolhe na busca do painel qualquer volante do perfil, mesmo sem dia ocioso no mes; RH/
+        // Admin tambem quem nao e mais volante e tem historico): painel com o seletor de mes igual ao da Previsao (ano, depois mes), so
+        // com os meses em que ele ficou ocioso (dias ja passados, da foto diaria registrar-ociosidade.php) ou tem nota. Abre no mes mais
+        // recente ate o atual. Dados: previsao-ferias.php?acao=historico.
+        // ==========================================
+        let historicoOciosos = null;            // {meses: [{mes, dias, nota}], mes, ano, passo}; null = nenhum volante carregado
+        let textoBuscaHistoricoOciosos = '';    // "matricula - nome" de quem esta no painel (a busca volta para ele se desistir)
+
+        function abrirHistoricoOciosos() {
+            fecharMenuNotaOciosos();
+            const v = volanteNotaOciosos(linhaMenuNotaOciosos);
+            if (v) abrirPainelHistoricoOciosos(v);
+        }
+        async function abrirHistoricoOciososBusca() {
+            await garantirCoberturaFeriasPrevisaoCarregada(); // a lista de volantes vem junto com as ferias
+            abrirPainelHistoricoOciosos(null);
+            document.getElementById('mho-busca').focus();
+        }
+        function abrirPainelHistoricoOciosos(pessoa) {
+            historicoOciosos = null;
+            textoBuscaHistoricoOciosos = '';
+            document.getElementById('mho-busca').value = '';
+            document.getElementById('mho-quem').textContent = '';
+            document.getElementById('mho-mes-label').textContent = '-';
+            document.getElementById('mho-mes-dropdown').classList.remove('mostrando');
+            document.getElementById('mho-conteudo').innerHTML = '<div class="mho-vazio">Escolha o volante.</div>';
+            document.getElementById('modal-historico-ociosos').style.display = 'flex';
+            if (pessoa) carregarHistoricoOciosos(pessoa);
+        }
+        function fecharHistoricoOciosos() {
+            historicoOciosos = null;
+            document.getElementById('mho-lista').classList.remove('mostrando');
+            document.getElementById('modal-historico-ociosos').style.display = 'none';
+        }
+
+        // Pessoas da busca: os volantes do perfil (os mesmos da aba, mesmo sem dia ocioso) e, para RH/Admin, quem nao e mais volante.
+        const textoPessoaHistoricoOciosos = p => `${normalizarMatricula(p.matricula)} - ${p.nome || '(sem cadastro)'}`;
+        function pessoasHistoricoOciosos() {
+            return [...volantesPrevisao, ...exVolantesPrevisao.map(e => ({ ...e, ex: true }))]
+                .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || '')));
+        }
+        async function carregarHistoricoOciosos(p) {
+            const texto = textoBuscaHistoricoOciosos = textoPessoaHistoricoOciosos(p);
+            historicoOciosos = null;
+            document.getElementById('mho-busca').value = texto;
+            document.getElementById('mho-quem').textContent = [formatarCentroCusto(p.centro_custo), p.ex ? 'não é mais volante' : p.funcao].filter(Boolean).join(' · ');
+            document.getElementById('mho-mes-label').textContent = '-';
+            document.getElementById('mho-mes-dropdown').classList.remove('mostrando');
+            const conteudo = document.getElementById('mho-conteudo');
+            conteudo.innerHTML = '<div class="mho-vazio">Carregando...</div>';
+            let resposta;
+            try {
+                resposta = await dbPrevisaoFerias('acao=historico&matricula=' + encodeURIComponent(p.matricula));
+            } catch (e) {
+                if (textoBuscaHistoricoOciosos === texto) conteudo.innerHTML = `<div class="mho-vazio">${escapeHtml(e.message)}</div>`;
+                return;
+            }
+            if (textoBuscaHistoricoOciosos !== texto) return; // escolheu outra pessoa enquanto carregava
+            const meses = resposta.meses || []; // do mais recente ao mais antigo
+            // Abre no mes mais recente ate o atual (mes futuro so tem nota); so mes futuro: o mais proximo.
+            const atual = new Date().toLocaleDateString('sv-SE').slice(0, 7);
+            historicoOciosos = { meses, mes: (meses.find(m => m.mes <= atual) || meses[meses.length - 1])?.mes || null };
+            renderizarHistoricoOciosos();
+        }
+
+        // Busca do painel: lista igual a do "Quem cobre" (contrato, codigo, matricula, nome, funcao).
+        function mostrarOpcoesHistoricoOciosos(termo) {
+            const lista = document.getElementById('mho-lista');
+            const busca = semAcentoPrevisao(termo.trim());
+            const achadas = pessoasHistoricoOciosos().filter(p => semAcentoPrevisao(`${textoPessoaHistoricoOciosos(p)} ${p.matricula}`).includes(busca));
+            lista.innerHTML = achadas.length ? '' : '<div class="add-resultado-item add-resultado-vazio">Nenhum volante encontrado.</div>';
+            achadas.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'add-resultado-item';
+                linhaColaboradorPrevisao(item, p.centro_custo, normalizarMatricula(p.matricula), p.nome || '(sem cadastro)', p.ex ? 'NÃO É MAIS VOLANTE' : p.funcao);
+                item.onmousedown = e => { // mousedown: antes do blur da caixa fechar a lista
+                    e.preventDefault();
+                    carregarHistoricoOciosos(p);
+                    document.getElementById('mho-busca').blur();
+                };
+                lista.appendChild(item);
+            });
+            lista.classList.add('mostrando');
+        }
+        function teclaHistoricoOciosos(e) { // Enter escolhe o primeiro da lista
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            document.querySelector('#mho-lista.mostrando .add-resultado-item:not(.add-resultado-vazio)')?.dispatchEvent(new MouseEvent('mousedown', { cancelable: true }));
+        }
+        function fecharOpcoesHistoricoOciosos() {
+            document.getElementById('mho-lista').classList.remove('mostrando');
+            document.getElementById('mho-busca').value = textoBuscaHistoricoOciosos; // digitou sem escolher: volta o que estava
+        }
+
+        // "03/11 a 07/11 e 20/11" (dias AAAA-MM-DD em ordem), como a coluna PERIODO da aba.
+        function trechosHistoricoOciosos(dias) {
+            const ddmm = s => `${s.slice(8, 10)}/${s.slice(5, 7)}`;
+            const trechos = [];
+            dias.forEach(dia => {
+                const ultimo = trechos[trechos.length - 1];
+                const seguinte = ultimo && new Date(new Date(ultimo[1] + 'T12:00').getTime() + 864e5).toLocaleDateString('sv-SE') === dia;
+                if (seguinte) ultimo[1] = dia; else trechos.push([dia, dia]);
+            });
+            const textos = trechos.map(([ini, fim]) => ini === fim ? ddmm(ini) : `${ddmm(ini)} a ${ddmm(fim)}`);
+            return textos.length > 1 ? `${textos.slice(0, -1).join(', ')} e ${textos[textos.length - 1]}` : textos[0];
+        }
+
+        function renderizarHistoricoOciosos() {
+            const h = historicoOciosos;
+            const item = h.meses.find(m => m.mes === h.mes);
+            document.getElementById('mho-mes-label').textContent = item ? nomeMesOciosos(item.mes) : '-';
+            const conteudo = document.getElementById('mho-conteudo');
+            if (!item) {
+                conteudo.innerHTML = '<div class="mho-vazio">Nenhum dia ocioso registrado nem nota para este volante.</div>';
+                return;
+            }
+            // So dia que ja passou e gravado: o mes atual vai ate ontem (de hoje em diante esta na aba).
+            const mesAtual = item.mes === new Date().toLocaleDateString('sv-SE').slice(0, 7);
+            const dias = item.dias.length
+                ? `<div class="mho-rotulo">Dias ociosos: ${item.dias.length}${mesAtual ? ' (até ontem)' : ''}</div><div class="mho-texto">${escapeHtml(trechosHistoricoOciosos(item.dias))}</div>`
+                : '<div class="mho-rotulo">Dias ociosos</div><div class="mho-vazio">Nenhum dia ocioso registrado neste mês.</div>';
+            const nota = item.nota
+                ? `<div class="mho-rotulo">Nota de ${dataNotaOciosos(item.nota.em)}${item.nota.por ? ` · ${escapeHtml(item.nota.por)}` : ''}</div><div class="mho-texto">${escapeHtml(item.nota.texto)}</div>`
+                : '<div class="mho-rotulo">Nota</div><div class="mho-vazio">Sem nota neste mês.</div>';
+            conteudo.innerHTML = `<div>${dias}</div><div>${nota}</div>`;
+        }
+
+        // Seletor de mes do painel: mesmo visual e os mesmos 2 passos do seletor da Previsao (anos do mais recente, meses em ordem).
+        function montarDropdownMesHistorico() {
+            const h = historicoOciosos;
+            const dropdown = document.getElementById('mho-mes-dropdown');
+            const titulo = document.createElement('div');
+            const lista = document.createElement('div');
+            titulo.className = 'fopag-mes-dropdown-titulo';
+            lista.className = 'fopag-mes-lista';
+            const item = (texto, ativo, aoClicar) => {
+                const el = document.createElement('div');
+                el.className = 'fopag-mes-item' + (ativo ? ' ativo' : '');
+                el.textContent = texto;
+                el.onclick = aoClicar;
+                lista.appendChild(el);
+            };
+            if (!h.meses.length) {
+                titulo.textContent = 'Nenhum mês no histórico';
+            } else if (h.passo === 'ano') {
+                titulo.textContent = 'Selecione o ano';
+                [...new Set(h.meses.map(m => m.mes.slice(0, 4)))].forEach(ano => item(ano, ano === (h.mes || '').slice(0, 4), () => {
+                    h.ano = ano; h.passo = 'mes'; montarDropdownMesHistorico();
+                }));
+            } else {
+                titulo.className += ' clicavel';
+                titulo.textContent = `< ${h.ano}`;
+                titulo.onclick = () => { h.passo = 'ano'; montarDropdownMesHistorico(); };
+                h.meses.filter(m => m.mes.startsWith(h.ano + '-')).reverse().forEach(m => item(NOMES_MESES_PREVISAO[Number(m.mes.slice(5, 7)) - 1], m.mes === h.mes, () => {
+                    h.mes = m.mes;
+                    dropdown.classList.remove('mostrando');
+                    renderizarHistoricoOciosos();
+                }));
+            }
+            dropdown.replaceChildren(titulo, lista);
+        }
+        function alternarDropdownMesHistorico(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('mho-mes-dropdown');
+            const h = historicoOciosos;
+            if (!h || !dropdown.classList.toggle('mostrando')) return; // sem volante carregado: nada a escolher
+            h.ano = (h.mes || '').slice(0, 4);
+            h.passo = h.mes ? 'mes' : 'ano';
+            montarDropdownMesHistorico();
+        }
+        // Clique dentro da lista nao fecha (ela e redesenhada a cada passo: stopPropagation no onclick dela, no HTML do painel, que fica
+        // depois deste script); fora do seletor fecha. Esc uma camada por vez: a lista de meses, depois a busca (desiste e volta quem
+        // estava), e so entao o Esc global de filtro.js fecha o painel.
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#mho-mes-btn')) document.getElementById('mho-mes-dropdown').classList.remove('mostrando');
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape' && e.key !== 'Esc') return;
+            const dropdown = document.getElementById('mho-mes-dropdown');
+            if (dropdown.classList.contains('mostrando')) dropdown.classList.remove('mostrando');
+            else if (document.activeElement?.id === 'mho-busca') document.activeElement.blur();
+            else return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }, true);
+    </script>
+
+    <div id="modal-cobertura-ferias" class="modal-overlay" onclick="if (event.target === this) fecharModalCoberturaPrevisao()">
+        <div class="modal-content" style="width:640px; max-width:92vw; box-sizing:border-box;" role="dialog" aria-labelledby="mcf-titulo">
+            <div class="modal-header"><h3 id="mcf-titulo"></h3></div>
+            <div id="mcf-periodo" style="color:#555; font-size:13px;"></div>
+            <div id="mcf-historico" style="display:none;"></div>
+            <div id="mcf-bloco-nota" class="info-group" style="display:none; min-width:0;">
+                <label for="mcf-nota" id="mcf-nota-rotulo">Nota do Preposto</label>
+                <textarea id="mcf-nota" rows="2" readonly></textarea>
+            </div>
+            <div class="switch-container">
+                <span>Precisa de cobertura</span>
+                <label class="switch">
+                    <input type="checkbox" id="mcf-nao-precisa" aria-label="Não precisa de cobertura" onchange="atualizarModalCoberturaPrevisao()">
+                    <span class="slider"></span>
+                </label>
+                <span>Não precisa de cobertura</span>
+            </div>
+            <div id="mcf-bloco-apartir" class="info-group" style="display:none;">
+                <label for="mcf-apartir">A partir de</label>
+                <input type="date" id="mcf-apartir" onchange="aoMudarAPartirPrevisao()">
+            </div>
+            <div id="mcf-bloco-cobertura" class="info-group" style="min-width:0;">
+                <label for="mcf-cobertura-busca">Quem cobre</label>
+                <input type="hidden" id="mcf-cobertura">
+                <input type="text" id="mcf-cobertura-busca" autocomplete="off" placeholder="Digite a matricula ou o nome..."
+                       onfocus="this.select(); mostrarOpcoesCoberturaPrevisao('')" oninput="mostrarOpcoesCoberturaPrevisao(this.value)"
+                       onblur="fecharOpcoesCoberturaPrevisao()" onkeydown="teclaCoberturaPrevisao(event)">
+                <div id="mcf-cobertura-lista" class="add-resultados-busca"></div>
+                <textarea id="mcf-motivo" maxlength="255" rows="3" placeholder="Como será a cobertura interna (aparece no SAF)" style="margin-top:6px;"></textarea>
+                <div id="mcf-bloco-transferencia" style="display:none; margin-top:8px;">
+                    <label for="mcf-transf-busca">Quem vai cobrir (será transferido a volante)</label>
+                    <input type="text" id="mcf-transf-busca" autocomplete="off" placeholder="Matrícula ou nome (CGV e Protheus)..."
+                           onfocus="this.select(); buscarPessoaPrevisao('transf', this.value)" oninput="buscarPessoaPrevisao('transf', this.value)"
+                           onblur="fecharPessoaPrevisao('transf')" onkeydown="teclaPessoaPrevisao('transf', event)">
+                    <div id="mcf-transf-lista" class="add-resultados-busca"></div>
+                    <label for="mcf-transf-link" style="display:block; margin-top:8px;">Link da transferência</label>
+                    <input type="url" id="mcf-transf-link" autocomplete="off" spellcheck="false" placeholder="https://...">
+                </div>
+                <div id="mcf-bloco-emprestimo" style="display:none; margin-top:8px;">
+                    <label for="mcf-emp-busca">Quem vem emprestado</label>
+                    <input type="text" id="mcf-emp-busca" autocomplete="off" placeholder="Matrícula ou nome (CGV e Protheus)..."
+                           onfocus="this.select(); buscarPessoaPrevisao('emp', this.value)" oninput="buscarPessoaPrevisao('emp', this.value)"
+                           onblur="fecharPessoaPrevisao('emp')" onkeydown="teclaPessoaPrevisao('emp', event)">
+                    <div id="mcf-emp-lista" class="add-resultados-busca"></div>
+                    <label style="display:flex; align-items:center; gap:8px; margin-top:10px; cursor:pointer;">
+                        <input type="checkbox" id="mcf-emp-substituir" style="width:auto; margin:0;" onchange="atualizarModalCoberturaPrevisao()">
+                        O POSTO PRECISARÁ SER SUBSTITUÍDO?
+                    </label>
+                    <div id="mcf-bloco-substituto" style="display:none; margin-top:8px;">
+                        <label for="mcf-sub-busca">Quem vamos enviar ao posto de origem</label>
+                        <input type="text" id="mcf-sub-busca" autocomplete="off" placeholder="Matrícula ou nome (CGV e Protheus)..."
+                               onfocus="this.select(); buscarPessoaPrevisao('sub', this.value)" oninput="buscarPessoaPrevisao('sub', this.value)"
+                               onblur="fecharPessoaPrevisao('sub')" onkeydown="teclaPessoaPrevisao('sub', event)">
+                        <div id="mcf-sub-lista" class="add-resultados-busca"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="mcf-aviso" role="status" style="color:#8a5a00; font-size:13px;"></div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <div style="position:relative; margin-right:auto; display:flex;">
+                    <button type="button" id="mcf-whats" title="Notificar" aria-label="Notificar" aria-haspopup="menu"
+                            onclick="document.getElementById('mcf-whats-menu').classList.toggle('mostrando')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2a5 5 0 0 0-5 5v3.3c0 .9-.35 1.75-1 2.4l-.8.8h13.6l-.8-.8c-.65-.65-1-1.5-1-2.4V8.2a5 5 0 0 0-5-5Z"/><path d="M9.6 18.2a2.4 2.4 0 0 0 4.8 0"/></svg>
+                    </button>
+                    <div id="mcf-whats-menu" role="menu">
+                        <button type="button" role="menuitem" onclick="avisarWhatsPrevisao('contrato')">Para o contrato</button>
+                        <button type="button" role="menuitem" onclick="avisarWhatsPrevisao('colaborador')">Para o colaborador</button>
+                    </div>
+                </div>
+                <button type="button" onclick="fecharModalCoberturaPrevisao()" style="padding:12px 22px; background:#eef1f1; color:#2b2b2b; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">Fechar</button>
+                <button type="button" class="btn-salvar" id="mcf-salvar" onclick="salvarModalCoberturaPrevisao()">Enviar ao SAF</button>
+            </div>
+        </div>
+    </div>
+    <!-- Nota da aba Volantes Ociosos: menu do botao direito, barra da multi selecao e painel do texto. -->
+    <div id="menu-nota-ociosos" role="menu">
+        <button type="button" role="menuitem" id="mno-nota" onclick="abrirModalNotaOciosos()">Adicionar nota</button>
+        <button type="button" role="menuitem" id="mno-multi" onclick="alternarMultiSelecaoNota()">Multi seleção</button>
+        <button type="button" role="menuitem" id="mno-historico" onclick="abrirHistoricoOciosos()">Histórico de observação</button>
+    </div>
+    <div id="barra-nota-ociosos" role="status">
+        <span id="barra-nota-ociosos-texto"></span>
+        <button type="button" class="btn-salvar" onclick="abrirModalNotaOciosos()">Adicionar nota</button>
+        <button type="button" onclick="sairMultiSelecaoNota()" style="background:#eef1f1; color:#2b2b2b; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">Cancelar</button>
+    </div>
+    <div id="modal-nota-ociosos" class="modal-overlay" onclick="if (event.target === this) fecharModalNotaOciosos()">
+        <div class="modal-content" style="width:520px; max-width:92vw; box-sizing:border-box;" role="dialog" aria-labelledby="mno-titulo">
+            <div class="modal-header"><h3 id="mno-titulo"></h3></div>
+            <div id="mno-quem" style="font-size:13px; max-height:96px; overflow-y:auto;"></div>
+            <div class="info-group" style="min-width:0;">
+                <label for="mno-texto">Nota</label>
+                <textarea id="mno-texto" maxlength="500" rows="4" placeholder="Escreva a nota"></textarea>
+            </div>
+            <div id="mno-aviso" role="status" style="font-size:13px;"></div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" onclick="fecharModalNotaOciosos()" style="padding:12px 22px; background:#eef1f1; color:#2b2b2b; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">Cancelar</button>
+                <button type="button" class="btn-salvar" id="mno-salvar" onclick="salvarNotaOciosos()">Salvar</button>
+            </div>
+        </div>
+    </div>
+    <!-- Historico de observacao (botao direito em Volantes Ociosos): seletor de mes, dias ociosos e nota do mes escolhido. -->
+    <div id="modal-historico-ociosos" class="modal-overlay" onclick="if (event.target === this) fecharHistoricoOciosos()">
+        <div class="modal-content" style="width:640px; max-width:92vw; box-sizing:border-box;" role="dialog" aria-labelledby="mho-titulo">
+            <div class="modal-header">
+                <h3 id="mho-titulo">Histórico de observação</h3>
+                <div class="fopag-mes-container">
+                    <button type="button" class="fopag-mes-pill" id="mho-mes-btn" onclick="alternarDropdownMesHistorico(event)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 2.8v4M16 2.8v4"/><path d="M3.5 9.8h17"/></svg>
+                        <span id="mho-mes-label">-</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l5 5 5-5"/></svg>
+                    </button>
+                    <div class="fopag-mes-dropdown" id="mho-mes-dropdown" onclick="event.stopPropagation()"></div>
+                </div>
+            </div>
+            <div class="info-group" style="min-width:0;">
+                <label for="mho-busca">Volante</label>
+                <input type="text" id="mho-busca" autocomplete="off" placeholder="Digite a matricula ou o nome..."
+                       onfocus="this.select(); mostrarOpcoesHistoricoOciosos('')" oninput="mostrarOpcoesHistoricoOciosos(this.value)"
+                       onblur="fecharOpcoesHistoricoOciosos()" onkeydown="teclaHistoricoOciosos(event)">
+                <div id="mho-lista" class="add-resultados-busca"></div>
+                <div id="mho-quem"></div>
+            </div>
+            <div id="mho-conteudo" style="display:flex; flex-direction:column; gap:14px;"></div>
+            <div style="display:flex; justify-content:flex-end;">
+                <button type="button" onclick="fecharHistoricoOciosos()" style="padding:12px 22px; background:#eef1f1; color:#2b2b2b; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">Fechar</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="96x96" href="frontend/img/favicon.png">
+    <link rel="stylesheet" href="frontend/style.css?v=b3668feb">
+
+    <title>Acessos — CGV</title>
+
+    <script src="backend/filtro.js?v=fab90393"></script>
+    <script src="backend/hostinger-storage.js?v=2803bcf0"></script>
+    <script>
+        // So RH/Administrador gerencia usuarios (o servidor ja recusa, verificarSessaoAdmin em login.php); isto so evita que um Gestor veja a tela montada por um instante. Roda antes do resto, como a guarda de filtro.js.
+        if (window.self === window.top && (typeof souRH !== 'function' || !souRH())) {
+            window.location.href = 'colaboradores/funcionarios.html';
+        }
+    </script>
+</head>
+
+<body>
+
+    <nav class="hotbar">
+        <div class="hotbar-nav">
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-colab')">COLABORADORES</button>
+            <div class="hotbar-dropdown-content" id="drop-colab">
+                <a href="colaboradores/funcionarios.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2"/><path d="M5.8 15.5c.5-1.6 1.6-2.4 2.7-2.4s2.2.8 2.7 2.4"/><path d="M13.5 9.5h5M13.5 13h5"/></svg><div class="item-textos"><b>Funcionarios</b><span class="item-desc">Colaboradores da minha gestao</span></div></a>
+                <a href="coberturas/dashboard.html" class="item-premium" id="item-dashboard-gestor" style="display:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.3"/></svg><div class="item-textos"><b>Dashboard</b><span class="item-desc">Indicadores e visao geral da equipe</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" id="item-localizacao-ponto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.7 7-12.2A7 7 0 1 0 5 8.8C5 14.3 12 21 12 21Z"/><circle cx="12" cy="8.7" r="2.4"/></svg><div class="item-textos"><b>Localizacao - Ponto</b><span class="item-desc">Local e ponto do colaborador</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-cob')">COBERTURAS</button>
+            <div class="hotbar-dropdown-content" id="drop-cob">
+                <a href="coberturas/solicitacao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4"/><path d="M9.3 12.2h5.4M9.3 15.6h5.4M9.3 8.8h2"/></svg><div class="item-textos"><b>Solicitacoes</b><span class="item-desc">Pedidos de cobertura</span></div></a>
+                <a href="coberturas/previsao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 6h6v6"/></svg><div class="item-textos"><b>Previsao</b><span class="item-desc">Projecao e historico de cobertura de ferias</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" onclick="abrirModalNotificacao()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2a5 5 0 0 0-5 5v3.3c0 .9-.35 1.75-1 2.4l-.8.8h13.6l-.8-.8c-.65-.65-1-1.5-1-2.4V8.2a5 5 0 0 0-5-5Z"/><path d="M9.6 18.2a2.4 2.4 0 0 0 4.8 0"/></svg><div class="item-textos"><b>Notificacao</b><span class="item-desc">Avisar responsavel</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-fopag')">FOPAG</button>
+            <div class="hotbar-dropdown-content" id="drop-fopag">
+                <a href="fopag/pfm-volantes.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Volantes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+                <a href="fopag/pfm-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-ben')">BENEFICIOS</button>
+            <div class="hotbar-dropdown-content" id="drop-ben">
+                <a href="beneficios/bene-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 2.8v4M16 2.8v4"/><path d="M3.5 9.8h17"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Beneficios do intermitente</span></div></a>            </div>
+        </div>
+        </div>
+        <div class="hotbar-util">
+            <button class="btn-sino" onclick="toggleNotificacoes()">
+                🔔<div class="badge-notificacao" id="badge-sino" style="display: none;">0</div>
+            </button>
+        </div>
+    </nav>
+
+    <div class="painel-notificacoes" id="painel-notificacoes">
+        <div class="painel-header">
+            <h3>Alertas</h3>
+        </div>
+        <div class="lista-notificacoes" id="lista-notificacoes">
+            <div class="notificacao-vazia">Nenhum alerta.</div>
+        </div>
+    </div>
+
+    <div class="conteudo-principal">
+
+        <div class="controles-superiores">
+            <input type="text" id="usuarios-busca" class="admin-busca" placeholder="Buscar usuario..."
+                   autocomplete="off" oninput="filtrarLinhasAdmin(this.value)">
+            <button class="btn-adicionar" onclick="adicionarLinha()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Novo usuário</button>
+        </div>
+
+        <div class="admin-tabela-wrapper admin-tabela-wrapper-pagina">
+            <table class="admin-tabela tabela-usuarios-admin">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Perfil</th>
+                        <th title="Preposto: o proprio time dele. Gestor: quais solicitacoes de cobertura aparecem pra ele atender.">Centro de custo</th>
+                        <th title="Preposto: pool de volante/intermitente que cobre o time dele (so informativo). Gestor: pool de volante/intermitente que ele administra (define quais colaboradores aparecem pra ele).">Cobertura (quem cobre)</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="admin-tbody">
+                    <!-- Linhas de usuarios entram aqui, geradas por criarLinhaHTML() -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="admin-actions admin-actions-pagina">
+            <div id="admin-status"></div>
+            <button class="btn-salvar" id="btn-salvar-planilha" onclick="salvarAlteracoes()">SALVAR ALTERACOES</button>
+        </div>
+
+    </div>
+
+    <script>
+        // Papeis validos (mesma lista de backend/api/login.php - o backend
+        // reconfere isso de novo, esta lista aqui e so pro dropdown).
+        const PAPEIS = [
+            { valor: 'gestor', rotulo: 'GESTOR' },
+            { valor: 'preposto', rotulo: 'PREPOSTO' },
+            { valor: 'rh', rotulo: 'RH' },
+            { valor: 'administrador', rotulo: 'ADMIN' },
+        ];
+
+        // Papeis que tem escopo por centro de custo (mostram o seletor de
+        // Centro de Custo na linha) - RH fica de fora, acesso ja e total.
+        const PAPEIS_COM_CENTRO_CUSTO = ['gestor', 'preposto'];
+
+        // Gestor e Preposto TEM os 2, cada um com seu significado (ver usuario_centros_custo.papel/gestor_centro_cobertura em backend/schema.sql):
+        //   Centro de Custo: Preposto = o proprio time dele (direto).
+        //                     Gestor = quais SOLICITACOES aparecem pra ele.
+        //   Cobertura (quem cobre): Preposto = so informativo (quem cobre
+        //                     ele), nao influencia o que ele mesmo ve.
+        //                     Gestor = quais COLABORADORES (pool de
+        //                     volante/intermitente) aparecem pra ele.
+        const PAPEIS_COM_COBERTURA = ['preposto', 'gestor'];
+
+        // Estado do Centro de Custo/Cobertura conforme o CONJUNTO de papeis (ver abrirPapelPicker): aparecem pra Gestor OU Preposto; ficam BLOQUEADOS em "Todos os contratos" quando RH tambem esta no conjunto (RH ja e irrestrito).
+        // Gestor E Preposto juntos (sem RH): cada coluna mostra um seletor por papel (rotulos PREPOSTO/GESTOR; data-centros-gestor e
+        // data-centros-cobre-gestor guardam o lado Gestor). Com RH as colunas travam em "Todos os contratos" e o servidor le assim (db.php).
+        function calcularEstadoCamposEscopo(papeis) {
+            const temRH = papeis.includes('rh');
+            const temGestor = papeis.includes('gestor');
+            const temPreposto = papeis.includes('preposto');
+
+            const centrosVisivel = temGestor || temPreposto;
+            const centrosBloqueado = temRH && temGestor && temPreposto;
+
+            const coberturaVisivel = temGestor || temPreposto;
+            const coberturaBloqueada = (temGestor || temPreposto) && temRH;
+
+            return {
+                centros: { visivel: centrosVisivel, bloqueado: centrosBloqueado },
+                cobertura: { visivel: coberturaVisivel, bloqueado: coberturaBloqueada },
+                porPapel: temGestor && temPreposto && !temRH,
+            };
+        }
+
+        async function carregarUsuarios() {
+            const [usuarios] = await Promise.all([
+                dbUsuariosListar(),
+                // Nao bloqueia a tela se isto falhar - o seletor de centro de
+                // custo so fica vazio ate o proximo garantirCentrosCustoDisponiveis().
+                garantirCentrosCustoDisponiveis().catch(() => {}),
+            ]);
+            renderizarTabelaAdmin(usuarios);
+        }
+
+        function renderizarTabelaAdmin(usuarios) {
+            const tbody = document.getElementById('admin-tbody');
+            tbody.innerHTML = '';
+
+            usuarios.forEach(row => {
+                criarLinhaHTML(row.id, row.usuario, row.papel || 'gestor', row.papeis_extra || [], row.centros_custo || [], row.centro_custo_cobre || [], row.centro_custo_cobre_gestor || [], Number(row.senha_local) === 1, row.centros_custo_gestor || []);
+            });
+        }
+
+        // Usuario novo so pode vir do directory USC (sem senha local): a linha nasce com o botao "Selecionar usuario do diretorio..." (criarLinhaHTML/abrirDiretorioPickerLinha).
+        // Perfil vazio: linha nova sem perfil nunca e salva (salvarAlteracoes, partesFaltantesLinha).
+        function adicionarLinha() {
+            criarLinhaHTML(null, "", "", [], [], [], [], false, []);
+            // A linha nova entra no fim da lista (que rola): sem isso, com a lista longa, o botao parecia nao fazer nada. O foco no
+            // "Selecionar usuario do diretorio..." rola ate ela e ja deixa abrir o picker com Enter.
+            document.getElementById('admin-tbody').lastElementChild.querySelector('.val-usuario button').focus();
+        }
+
+        const PAPEIS_ROTULO = { rh: 'RH', gestor: 'GESTOR', preposto: 'PREPOSTO', administrador: 'ADMIN' };
+        function rotuloPapeis(papeis) {
+            return (papeis && papeis.length > 0) ? papeis.map(p => PAPEIS_ROTULO[p] || p).join(' + ') : 'Selecione...';
+        }
+
+        // O backend guarda um papel PRINCIPAL + ate 2 EXTRAS (usuarios.papel/usuario_papeis_extra; perfil triplo). A ordem dos checkboxes nao importa:
+        // prioridade Administrador > RH (nenhum dos 2 e extra, so gestor/preposto) > Preposto > Gestor. Ex: {Gestor, Preposto} vira papel=preposto/papeis_extra=[gestor].
+        function resolverPapelPrincipal(papeis) {
+            // Administrador e perfil UNICO: nunca acumula com outro (o picker impede, ver abrirPapelPicker, e o servidor recusa em login.php, acao=salvar).
+            if (papeis.includes('administrador')) return { papel: 'administrador', papeis_extra: [] };
+            if (papeis.includes('rh')) return { papel: 'rh', papeis_extra: papeis.filter(p => p !== 'rh' && p !== 'administrador') };
+            if (papeis.includes('preposto')) return { papel: 'preposto', papeis_extra: papeis.filter(p => p !== 'preposto') };
+            return { papel: papeis[0] || 'gestor', papeis_extra: papeis.slice(1) };
+        }
+
+        // Avatar com iniciais (ver .avatar-usuario no CSS) - cor escolhida
+        // por hash do nome (so pra distribuir cores, sem significado).
+        const CORES_AVATAR = ['#006f73', '#5b5375', '#f08231', '#4658c3'];
+        function iniciaisUsuario(nome) {
+            const limpo = String(nome || '').trim();
+            return limpo ? limpo.slice(0, 2).toUpperCase() : '?';
+        }
+        function corAvatarUsuario(nome) {
+            const limpo = String(nome || '');
+            if (!limpo) return '#b5bec2';
+            let h = 0;
+            for (const c of limpo) h = (h * 31 + c.charCodeAt(0)) % CORES_AVATAR.length;
+            return CORES_AVATAR[h];
+        }
+
+        function criarLinhaHTML(id, usuario, papel, papeisExtra, centrosCusto, centroCustoCobre, centroCustoCoberturaGestor, senhaLocal, centrosCustoGestor = []) {
+            const tbody = document.getElementById('admin-tbody');
+            const idUnico = 'linha-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+
+            const tr = document.createElement('tr');
+            tr.className = 'admin-linha';
+            tr.id = idUnico;
+            if (id) tr.dataset.id = id;
+
+            // O botao guarda o conjunto de papeis num array em data-papeis (escolhido em abrirPapelPicker); qualquer papel que de acesso a Centro de custo/Cobertura mostra o seletor.
+            // papel='' (linha nova) vira papeis=[] ("Selecione...").
+            const papeis = papel ? ((papeisExtra && papeisExtra.length > 0) ? [papel, ...papeisExtra] : [papel]) : [];
+            const semPerfil = papeis.length === 0;
+
+            const estado = calcularEstadoCamposEscopo(papeis);
+            const listaCentros = estado.centros.bloqueado ? ['TODOS'] : (centrosCusto || []);
+            // Qual Cobertura mostrar/editar: Preposto manda se os 2 papeis estiverem juntos (ver LIMITACAO CONHECIDA em calcularEstadoCamposEscopo; papelParaCentroCustoRecebido em login.php).
+            const coberturaFonte = papeis.includes('preposto') ? centroCustoCobre : centroCustoCoberturaGestor;
+            const listaCobre = estado.cobertura.bloqueado ? ['TODOS'] : (coberturaFonte || []);
+            // Sem perfil escolhido nao da pra saber se Centro de Custo/Cobertura se aplicam: placeholder proprio, pra nao sugerir acesso ja configurado.
+            const placeholderCentros = semPerfil ? 'Selecione o perfil primeiro' : 'TODOS OS CONTRATOS';
+            const placeholderCobertura = semPerfil ? 'Selecione o perfil primeiro' : '-';
+            // Lado Gestor de quem tambem e Preposto (estado.porPapel): rotulo + seletor proprio em cada coluna.
+            const rotuloPapel = texto => `<span class="escopo-papel-rotulo" style="display:${estado.porPapel ? 'block' : 'none'}; font-size:10px; font-weight:700; letter-spacing:.04em; opacity:.7; margin:2px 0 3px; text-align:left;">${texto}</span>`;
+            const listaCentrosGestor = centrosCustoGestor || [];
+            const listaCobreGestor = centroCustoCoberturaGestor || [];
+            // Listas de CADA papel, so dos papeis que a pessoa tem (atualizarVisibilidadePapel as troca de botao quando o Perfil muda). TODOS de coluna travada (RH) foi forcado: ao destravar vale vazio.
+            const forcado = (travado, lista) => (travado && lista.includes('TODOS')) ? [] : lista;
+            const temPreposto = papeis.includes('preposto'), temGestor = papeis.includes('gestor');
+            tr.escopo = {
+                papeis,
+                pCentros: temPreposto ? forcado(estado.centros.bloqueado, centrosCusto || []) : [],
+                pCobre: temPreposto ? forcado(estado.cobertura.bloqueado, centroCustoCobre || []) : [],
+                gCentros: temGestor ? ((temPreposto ? centrosCustoGestor : centrosCusto) || []) : [],
+                gCobre: temGestor ? forcado(estado.cobertura.bloqueado, centroCustoCoberturaGestor || []) : [],
+            };
+
+            // Linha existente (id): usuario e texto editavel. Linha NOVA: sem campo de texto, o usuario vem do directory USC pelo picker (abrirDiretorioPickerLinha).
+            const avatar = `<span class="avatar-usuario" style="background-color:${corAvatarUsuario(usuario)};">${iniciaisUsuario(usuario)}</span>`;
+            // Usuario existente: campo so-leitura (o nome vem do diretorio USC; editar aqui so desalinharia o cadastro local). Linha nova: o botao do picker so troca de texto ao selecionar.
+            const celulaUsuario = id
+                ? `${avatar}<input type="text" class="table-input" value="${escapeHtml(usuario)}" placeholder="Usuario" readonly>`
+                : `${avatar}<button type="button" class="centros-custo-btn" data-usuario="" onclick="event.stopPropagation(); abrirDiretorioPickerLinha(this)">Selecionar usuario do diretorio...</button>`;
+            // display:flex direto no <td> tira a celula do table-layout:fixed (largura por conteudo); por isso o flex vive num <div> por dentro.
+
+            tr.innerHTML = `
+                <td class="val-usuario"><div style="display:flex; align-items:center; gap:9px;">${celulaUsuario}</div></td>
+                <td>
+                    <button type="button" class="centros-custo-btn perfil-chip-btn${semPerfil ? '' : ' preenchido'}" data-papeis="${escapeHtml(JSON.stringify(papeis))}"
+                            onclick="event.stopPropagation(); abrirPapelPicker(this)">${escapeHtml(rotuloPapeis(papeis))}</button>
+                </td>
+                <td>
+                    ${rotuloPapel('PREPOSTO')}
+                    <button type="button" class="centros-custo-btn${listaCentros.length > 0 ? ' preenchido' : ''}"
+                            data-centros="${escapeHtml(JSON.stringify(listaCentros))}"
+                            ${estado.centros.bloqueado ? 'disabled ' : ''}onclick="event.stopPropagation(); abrirCentrosCustoPicker(this, 'centros')"
+                            style="${estado.centros.visivel ? '' : 'display:none;'}">${escapeHtml(rotuloCentrosCusto(listaCentros))}</button>
+                    <button type="button" class="centros-custo-btn preenchido centro-custo-todos-fixo" disabled
+                            style="${estado.centros.visivel ? 'display:none;' : ''}">${placeholderCentros}</button>
+                    ${rotuloPapel('GESTOR')}
+                    <button type="button" class="centros-custo-btn${listaCentrosGestor.length > 0 ? ' preenchido' : ''}"
+                            data-centros-gestor="${escapeHtml(JSON.stringify(listaCentrosGestor))}"
+                            onclick="event.stopPropagation(); abrirCentrosCustoPicker(this, 'centrosGestor')"
+                            style="${estado.porPapel ? '' : 'display:none;'}">${escapeHtml(rotuloCentrosCusto(listaCentrosGestor))}</button>
+                </td>
+                <td>
+                    ${rotuloPapel('PREPOSTO')}
+                    <button type="button" class="centros-custo-btn${listaCobre.length > 0 ? ' preenchido' : ''}"
+                            data-centros-cobre="${escapeHtml(JSON.stringify(listaCobre))}"
+                            ${estado.cobertura.bloqueado ? 'disabled ' : ''}onclick="event.stopPropagation(); abrirCentrosCustoPicker(this, 'centrosCobre')"
+                            style="${estado.cobertura.visivel ? '' : 'display:none;'}">${escapeHtml(rotuloCentrosCusto(listaCobre))}</button>
+                    <button type="button" class="centros-custo-btn preenchido cobertura-vazia-fixo" disabled
+                            style="${estado.cobertura.visivel ? 'display:none;' : ''}">${placeholderCobertura}</button>
+                    ${rotuloPapel('GESTOR')}
+                    <button type="button" class="centros-custo-btn${listaCobreGestor.length > 0 ? ' preenchido' : ''}"
+                            data-centros-cobre-gestor="${escapeHtml(JSON.stringify(listaCobreGestor))}"
+                            onclick="event.stopPropagation(); abrirCentrosCustoPicker(this, 'centrosCobreGestor')"
+                            style="${estado.porPapel ? '' : 'display:none;'}">${escapeHtml(rotuloCentrosCusto(listaCobreGestor))}</button>
+                </td>
+                <td><button class="btn-remover-icone" title="Remover" onclick="removerLinha('${idUnico}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg></button></td>
+            `;
+
+            // Conta Administrador ja salva e TRAVADA (unica, sem alterar nem excluir; o servidor tambem recusa, ver login.php): aparece so pra consulta, perfil desativado, sem lixeira, fora do "Salvar alteracoes".
+            if (id && papel === 'administrador') {
+                tr.dataset.travada = '1';
+                tr.title = 'Conta Administrador: travada, nao pode ser alterada nem excluida';
+                tr.querySelectorAll('button').forEach(b => { b.disabled = true; });
+                // Unica mudanca permitida na conta: a senha, so pelo proprio Administrador. Conta do directory nao tem senha local (o AD manda).
+                const btnLixeira = tr.querySelector('.btn-remover-icone');
+                if (senhaLocal && usuario.toLowerCase() === (localStorage.getItem('usuario') || '').toLowerCase()) {
+                    const btnSenha = document.createElement('button');
+                    btnSenha.type = 'button';
+                    btnSenha.className = 'centros-custo-btn';
+                    btnSenha.textContent = 'Alterar senha';
+                    btnSenha.onclick = () => alterarSenhaAdministrador(id, usuario, btnSenha);
+                    btnLixeira.replaceWith(btnSenha);
+                } else {
+                    btnLixeira.style.visibility = 'hidden';
+                }
+            }
+
+            tbody.appendChild(tr);
+            atualizarAvisoIncompletoLinha(tr);
+        }
+
+        // Pede a senha nova 2x e grava; o servidor so aceita se quem esta logado for a propria conta Administrador.
+        async function alterarSenhaAdministrador(id, usuario, btn) {
+            const nova = prompt(`Nova senha para "${usuario}":
+
+Minimo de 8 caracteres. A senha atual sera substituida.`);
+            if (nova === null) return;
+            if (prompt('Digite a nova senha de novo para confirmar:') !== nova) {
+                mostrarStatus('As senhas nao conferem. Nada foi alterado.', 'erro');
+                return;
+            }
+            btn.disabled = true;
+            try {
+                await dbUsuariosSalvar({ id, usuario, senha: nova });
+                mostrarStatus('Senha do Administrador alterada.', 'sucesso');
+            } catch (err) {
+                mostrarStatus('Erro ao alterar senha: ' + err.message, 'erro');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Mostra/esconde/bloqueia os seletores de centro de custo/cobertura conforme o conjunto de papeis (abrirPapelPicker, calcularEstadoCamposEscopo).
+        // Seletor escondido: caixa fixa desabilitada no lugar (Todos os contratos / "-"). BLOQUEADO (RH junto no conjunto): o botao real fica disabled com valor ["TODOS"].
+        function atualizarVisibilidadePapel(tr, papeis) {
+            const estado = calcularEstadoCamposEscopo(papeis);
+
+            // Os botoes principais mostram as listas do Preposto, ou as do Gestor quando ele esta sem Preposto; o lado Gestor (porPapel) as do Gestor.
+            // Antes de trocar, guarda em tr.escopo o que foi escolhido na tela com o Perfil anterior (coluna travada em TODOS nao conta) e depois
+            // mostra as listas do Perfil novo: papel que a linha nao tinha ao carregar comeca vazio (criarLinhaHTML), coluna que destrava volta ao que era antes de travar.
+            const e = tr.escopo;
+            const antes = calcularEstadoCamposEscopo(e.papeis);
+            const lerLista = (seletor, chave) => JSON.parse(tr.querySelector(seletor).dataset[chave] || '[]');
+            const donoAntes = e.papeis.includes('preposto') ? 'p' : 'g';
+            if (antes.porPapel) {
+                e.gCentros = lerLista('.centros-custo-btn[data-centros-gestor]', 'centrosGestor');
+                e.gCobre = lerLista('.centros-custo-btn[data-centros-cobre-gestor]', 'centrosCobreGestor');
+            }
+            if (antes.centros.visivel && !antes.centros.bloqueado) e[donoAntes + 'Centros'] = lerLista('.centros-custo-btn[data-centros]', 'centros');
+            if (antes.cobertura.visivel && !antes.cobertura.bloqueado) e[donoAntes + 'Cobre'] = lerLista('.centros-custo-btn[data-centros-cobre]', 'centrosCobre');
+            e.papeis = papeis;
+            const dono = papeis.includes('preposto') ? 'p' : 'g';
+
+            const btnCentros = tr.querySelector('.centros-custo-btn[data-centros]');
+            if (btnCentros) {
+                btnCentros.style.display = estado.centros.visivel ? '' : 'none';
+                btnCentros.disabled = estado.centros.bloqueado;
+                atualizarBotaoCentrosCusto(btnCentros, estado.centros.bloqueado ? ['TODOS'] : e[dono + 'Centros'], 'centros');
+            }
+            const btnTodosFixo = tr.querySelector('.centro-custo-todos-fixo');
+            if (btnTodosFixo) {
+                btnTodosFixo.style.display = estado.centros.visivel ? 'none' : '';
+                // Linha nova comeca com "Selecione o perfil primeiro" (criarLinhaHTML); apos o primeiro perfil escolhido, essa caixa (ex: RH puro) passa a significar "Todos os contratos".
+                btnTodosFixo.textContent = 'TODOS OS CONTRATOS';
+            }
+
+            const btnCobertura = tr.querySelector('.centros-custo-btn[data-centros-cobre]');
+            if (btnCobertura) {
+                btnCobertura.style.display = estado.cobertura.visivel ? '' : 'none';
+                btnCobertura.disabled = estado.cobertura.bloqueado;
+                atualizarBotaoCentrosCusto(btnCobertura, estado.cobertura.bloqueado ? ['TODOS'] : e[dono + 'Cobre'], 'centrosCobre');
+            }
+            // Lado Gestor de quem tambem e Preposto: rotulos e seletores proprios (estado.porPapel).
+            atualizarBotaoCentrosCusto(tr.querySelector('.centros-custo-btn[data-centros-gestor]'), e.gCentros, 'centrosGestor');
+            atualizarBotaoCentrosCusto(tr.querySelector('.centros-custo-btn[data-centros-cobre-gestor]'), e.gCobre, 'centrosCobreGestor');
+            tr.querySelectorAll('.escopo-papel-rotulo').forEach(r => { r.style.display = estado.porPapel ? 'block' : 'none'; });
+            tr.querySelectorAll('.centros-custo-btn[data-centros-gestor], .centros-custo-btn[data-centros-cobre-gestor]')
+                .forEach(b => { b.style.display = estado.porPapel ? '' : 'none'; });
+            const btnCoberturaVazia = tr.querySelector('.cobertura-vazia-fixo');
+            if (btnCoberturaVazia) {
+                btnCoberturaVazia.style.display = estado.cobertura.visivel ? 'none' : '';
+                btnCoberturaVazia.textContent = '-';
+            }
+
+            atualizarAvisoIncompletoLinha(tr);
+        }
+
+        // Apaga na hora, direto do banco (diferente de usuario/senha/papel, que ficam em rascunho ate SALVAR ALTERACOES): remover e acao irreversivel e pontual. Linha ainda nao salva (sem dataset.id) so sai da tela.
+        async function removerLinha(id) {
+            const linha = document.getElementById(id);
+            if (!linha) return;
+
+            if (!linha.dataset.id) {
+                linha.remove();
+                return;
+            }
+
+            const usuario = linha.querySelector('.val-usuario input').value || '(sem nome)';
+            if (!confirm(`Remover o usuario "${usuario}"? Essa acao nao pode ser desfeita.`)) return;
+
+            // So desativa (sem trocar o texto): o botao e um icone, e mexer
+            // no textContent apagaria o desenho da lixeira.
+            const btn = linha.querySelector('.btn-remover-icone');
+            btn.disabled = true;
+
+            try {
+                const resultado = await dbUsuariosRemover([linha.dataset.id]);
+                if (!resultado.removidos) {
+                    // Bloqueado no servidor (ex: conta Administrador travada, ou o ultimo RH/Administrador): a linha continua no banco, entao nao sai da tela.
+                    mostrarStatus(resultado.aviso || 'Este usuario nao pode ser removido.', 'erro');
+                    btn.disabled = false;
+                    return;
+                }
+                linha.remove();
+            } catch (err) {
+                mostrarStatus('Erro ao remover: ' + err.message, 'erro');
+                btn.disabled = false;
+            }
+        }
+
+        // Le o usuario da linha - input de texto (linha existente) ou o
+        // data-usuario do botao do picker (linha nova ainda nao salva).
+        function valorUsuarioLinha(linha) {
+            const input = linha.querySelector('.val-usuario input');
+            if (input) return input.value;
+            const btn = linha.querySelector('.val-usuario button');
+            return btn ? (btn.dataset.usuario || '') : '';
+        }
+
+        // O que falta preencher pra salvar: Perfil sempre; Centro de Custo so quando o perfil usa e nao esta em "Todos os contratos" (calcularEstadoCamposEscopo). Cobertura fica de fora: "-" (ninguem cobre) e valido.
+        function partesFaltantesLinha(linha) {
+            const faltando = [];
+            const papelBtn = linha.querySelector('.centros-custo-btn[data-papeis]');
+            const papeis = papelBtn ? JSON.parse(papelBtn.dataset.papeis || '[]') : [];
+            if (papeis.length === 0) faltando.push('Perfil');
+
+            if (papeis.length > 0) {
+                const estado = calcularEstadoCamposEscopo(papeis);
+                if (estado.centros.visivel && !estado.centros.bloqueado) {
+                    const centrosBtn = linha.querySelector('.centros-custo-btn[data-centros]');
+                    const lista = centrosBtn ? JSON.parse(centrosBtn.dataset.centros || '[]') : [];
+                    if (lista.length === 0) faltando.push(estado.porPapel ? 'Centro de custo do Preposto' : 'Centro de custo');
+                }
+                if (estado.porPapel) {
+                    const btnGestor = linha.querySelector('.centros-custo-btn[data-centros-gestor]');
+                    if (JSON.parse(btnGestor?.dataset.centrosGestor || '[]').length === 0) faltando.push('Centro de custo do Gestor');
+                }
+            }
+            return faltando;
+        }
+
+        // Aviso na propria linha (o aviso nativo de sair da pagina nao e customizavel, ver beforeunload) de cadastro incompleto, com usuario ja escolhido. Vale
+        // tambem pra linha ja salva (ex.: Gestor + Preposto antigo sem o Centro de custo do Gestor), que o salvarAlteracoes deixa de fora ate completar.
+        function atualizarAvisoIncompletoLinha(tr) {
+            if (!tr) return;
+            const avisoExistente = tr.querySelector('.aviso-cadastro-incompleto');
+            if (avisoExistente) avisoExistente.remove();
+
+            const usuario = valorUsuarioLinha(tr).trim();
+            if (!usuario) return;
+
+            const faltando = partesFaltantesLinha(tr);
+            if (faltando.length === 0) return;
+
+            const aviso = document.createElement('div');
+            aviso.className = 'aviso-cadastro-incompleto';
+            aviso.textContent = `Falta: ${faltando.join(', ')}`;
+            tr.querySelector('td:last-child').appendChild(aviso);
+        }
+
+        function filtrarLinhasAdmin(termo) {
+            const alvo = termo.trim().toLowerCase();
+            document.querySelectorAll('#admin-tbody .admin-linha').forEach(linha => {
+                const usuario = valorUsuarioLinha(linha).toLowerCase();
+                linha.style.display = usuario.includes(alvo) ? '' : 'none';
+            });
+        }
+
+        /* ---------- Seletor de centro de custo (papel Gestor) ---------- */
+        // Centros de custo existentes em Colaboradores (login.php?acao=listar_centros_custo), buscados uma vez e cacheados; cada linha guarda a selecao em data-centros (JSON), aplicada ao SALVAR ALTERACOES.
+        let CENTROS_CUSTO_DISPONIVEIS = null;
+        let painelCentrosCustoAberto = null;
+
+        async function garantirCentrosCustoDisponiveis() {
+            // So le o cache local de descricoes (sync diario, backend/scripts/sync-protheus-centros-custo.php; garantirDescricoesCentroCusto em backend/filtro.js).
+            await garantirDescricoesCentroCusto();
+            if (CENTROS_CUSTO_DISPONIVEIS) return;
+            CENTROS_CUSTO_DISPONIVEIS = await dbUsuariosListarCentrosCusto();
+        }
+
+        // Mesma regra de centroCustoEhVolante() no backend (protheus-colaboradores-helpers.php): codigo com "V" OU nome contem "INTERMITENTE", exceto 01V019 ("ADM PREPOSTOS", nao e centro de campo).
+        const CENTROS_EXCLUIDOS_VOLANTE = ['01V019'];
+        function centroCustoEhVolanteIntermitente(codigo) {
+            const cc = String(codigo || '').trim().toUpperCase();
+            if (!cc) return false;
+            if (CENTROS_EXCLUIDOS_VOLANTE.includes(cc)) return false;
+            if (cc.includes('V')) return true;
+            const nome = (typeof _mapaDescricaoCentroCusto !== 'undefined' && _mapaDescricaoCentroCusto)
+                ? (_mapaDescricaoCentroCusto[cc] || '') : '';
+            return nome.toUpperCase().includes('INTERMITENTE');
+        }
+
+        // Le o conjunto de papeis ja escolhido na linha (botao de Perfil, abrirPapelPicker) pra decidir o filtro do seletor.
+        function papeisDaLinha(tr) {
+            const btn = tr.querySelector('.centros-custo-btn[data-papeis]');
+            return btn ? JSON.parse(btn.dataset.papeis || '[]') : [];
+        }
+
+        // Lista oferecida no seletor, por campo (vale pra Gestor e Preposto): 'centros' (Centro de Custo) NUNCA volante/intermitente; 'centrosCobre' (Cobertura) SEMPRE volante/intermitente (cobertura e sobre contratos de campo).
+        function centrosDisponiveisParaCampo(campo, papeis) {
+            if (campo === 'centrosCobre' || campo === 'centrosCobreGestor') {
+                return CENTROS_CUSTO_DISPONIVEIS.filter(centroCustoEhVolanteIntermitente);
+            }
+            return CENTROS_CUSTO_DISPONIVEIS.filter(c => !centroCustoEhVolanteIntermitente(c));
+        }
+
+        function rotuloCentrosCusto(lista) {
+            if (lista && lista.includes('TODOS')) return 'TODOS OS CONTRATOS';
+            return (lista && lista.length > 0)
+                ? lista.map(formatarCentroCusto).join(', ')
+                : 'Nenhum centro selecionado';
+        }
+
+        // "campo" e 'centros' (centro de custo do proprio usuario) ou 'centrosCobre' (quem cobre um Preposto); mesmo painel/logica, cada um le/escreve seu data-*.
+        function atualizarBotaoCentrosCusto(botao, lista, campo) {
+            botao.dataset[campo] = JSON.stringify(lista);
+            botao.textContent = rotuloCentrosCusto(lista);
+            botao.classList.toggle('preenchido', lista.length > 0);
+            atualizarAvisoIncompletoLinha(botao.closest('tr'));
+        }
+
+        function fecharCentrosCustoPicker() {
+            if (painelCentrosCustoAberto) {
+                painelCentrosCustoAberto.remove();
+                painelCentrosCustoAberto = null;
+            }
+        }
+
+        async function abrirCentrosCustoPicker(botao, campo) {
+            fecharCentrosCustoPicker();
+            fecharDiretorioPicker();
+            fecharPapelPicker();
+            try {
+                await garantirCentrosCustoDisponiveis();
+            } catch (err) {
+                mostrarStatus('Erro ao carregar centros de custo: ' + err.message, 'erro');
+                return;
+            }
+
+            const selecionados = new Set(JSON.parse(botao.dataset[campo] || '[]'));
+            const todosMarcado = selecionados.has('TODOS');
+
+            // "Todos os contratos" so e opcao manual pro campo 'centros'; pra Cobertura so acontece forcado (RH+Preposto, atualizarVisibilidadePapel).
+            // TODOS ja gravado em quem nao e mais RH tambem aparece (marcado), pra dar pra desmarcar.
+            const mostraOpcaoTodos = campo === 'centros' || campo === 'centrosGestor' || todosMarcado;
+
+            const papeis = papeisDaLinha(botao.closest('tr'));
+            // Centro gravado que nao vale mais pra este campo (ex.: volante no Centro de custo, cadastro antigo) aparece no topo,
+            // marcado, pra dar pra desmarcar (senao o salvar e recusado sem saida).
+            const validos = centrosDisponiveisParaCampo(campo, papeis);
+            const opcoesDisponiveis = [...[...selecionados].filter(c => c !== 'TODOS' && !validos.includes(c)), ...validos];
+
+            const panel = document.createElement('div');
+            panel.className = 'centros-custo-painel';
+            const itensHtml = opcoesDisponiveis.map(c => `
+                <label class="centros-custo-item">
+                    <input type="checkbox" value="${escapeHtml(c)}" ${selecionados.has(c) ? 'checked' : ''} ${todosMarcado ? 'disabled' : ''}>
+                    <span>${escapeHtml(formatarCentroCusto(c))}${validos.includes(c) ? '' : ' <span style="color:#e74c3c;font-size:11px;">(não vale aqui: desmarque)</span>'}</span>
+                </label>
+            `).join('');
+            panel.innerHTML = `
+                <div class="centros-custo-painel-busca"><input type="text" placeholder="Buscar centro de custo..." autocomplete="off"></div>
+                ${mostraOpcaoTodos ? `
+                <label class="centros-custo-item-todos">
+                    <input type="checkbox" value="TODOS" ${todosMarcado ? 'checked' : ''}>
+                    <span>TODOS OS CONTRATOS</span>
+                </label>` : ''}
+                <div class="centros-custo-painel-lista">${itensHtml || '<span style="padding:8px;color:#8f8f8f;font-size:12px;">Nenhum centro de custo cadastrado ainda.</span>'}</div>
+            `;
+            document.body.appendChild(panel);
+            painelCentrosCustoAberto = panel;
+            panel.addEventListener('click', e => e.stopPropagation());
+
+            const rect = botao.getBoundingClientRect();
+            panel.style.top = Math.max(12, Math.min(rect.bottom + 6, window.innerHeight - 332)) + 'px';
+            panel.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - 276)) + 'px';
+
+            const chksIndividuais = panel.querySelectorAll('.centros-custo-painel-lista input');
+            chksIndividuais.forEach(chk => {
+                chk.addEventListener('change', () => {
+                    if (chk.checked) selecionados.add(chk.value); else selecionados.delete(chk.value);
+                    atualizarBotaoCentrosCusto(botao, [...selecionados], campo);
+                });
+            });
+
+            // "Todos os contratos" e exclusivo com marcar centros um a um: marcar limpa e desabilita os individuais; desmarcar devolve o controle normal, sem nenhum selecionado.
+            const chkTodos = panel.querySelector('.centros-custo-item-todos input');
+            if (chkTodos) {
+                chkTodos.addEventListener('change', () => {
+                    if (chkTodos.checked) {
+                        selecionados.clear();
+                        selecionados.add('TODOS');
+                        chksIndividuais.forEach(chk => { chk.checked = false; chk.disabled = true; });
+                    } else {
+                        selecionados.delete('TODOS');
+                        chksIndividuais.forEach(chk => { chk.disabled = false; });
+                    }
+                    atualizarBotaoCentrosCusto(botao, [...selecionados], campo);
+                });
+            }
+
+            const buscaInput = panel.querySelector('.centros-custo-painel-busca input');
+            buscaInput.addEventListener('input', () => {
+                const termo = buscaInput.value.trim().toLowerCase();
+                panel.querySelectorAll('.centros-custo-item').forEach(item => {
+                    item.style.display = item.textContent.toLowerCase().includes(termo) ? '' : 'none';
+                });
+            });
+            buscaInput.focus();
+        }
+
+        document.addEventListener('click', fecharCentrosCustoPicker);
+
+        /* ---------- Picker de usuario do directory (USC/LDAP) ---------- */
+        // Mesmo painel do seletor de centro de custo (.centros-custo-painel*), mas cada item e um clique que ja PREENCHE o botao da linha (sem checkbox/confirmar): usuario novo so vem do directory, um por vez.
+        let painelDiretorioAberto = null;
+
+        function fecharDiretorioPicker() {
+            if (painelDiretorioAberto) {
+                painelDiretorioAberto.remove();
+                painelDiretorioAberto = null;
+            }
+        }
+        document.addEventListener('click', fecharDiretorioPicker);
+
+        async function abrirDiretorioPickerLinha(botao) {
+            fecharCentrosCustoPicker();
+            fecharDiretorioPicker();
+            fecharPapelPicker();
+
+            const panel = document.createElement('div');
+            panel.className = 'centros-custo-painel';
+            panel.innerHTML = `
+                <div class="centros-custo-painel-busca"><input type="text" placeholder="Buscar no diretorio..." autocomplete="off"></div>
+                <div class="centros-custo-painel-lista"><span style="padding:8px;color:#8f8f8f;font-size:12px;">Carregando diretorio...</span></div>
+            `;
+            document.body.appendChild(panel);
+            painelDiretorioAberto = panel;
+            panel.addEventListener('click', e => e.stopPropagation());
+
+            const rect = botao.getBoundingClientRect();
+            panel.style.top = Math.max(12, Math.min(rect.bottom + 6, window.innerHeight - 332)) + 'px';
+            panel.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - 276)) + 'px';
+
+            const lista = panel.querySelector('.centros-custo-painel-lista');
+            const buscaInput = panel.querySelector('.centros-custo-painel-busca input');
+
+            let usuariosDiretorio = [];
+            try {
+                usuariosDiretorio = await dbUsuariosListarDiretorio();
+            } catch (err) {
+                lista.innerHTML = `<span style="padding:8px;color:#e74c3c;font-size:12px;">${escapeHtml(err.message)}</span>`;
+                return;
+            }
+
+            if (usuariosDiretorio.length === 0) {
+                lista.innerHTML = '<span style="padding:8px;color:#8f8f8f;font-size:12px;">Nenhum usuario novo no diretorio (todos ja estao cadastrados aqui).</span>';
+                return;
+            }
+
+            const renderizarItens = termo => {
+                const filtrados = usuariosDiretorio.filter(u =>
+                    u.usuario.toLowerCase().includes(termo) || (u.nome || '').toLowerCase().includes(termo));
+                lista.innerHTML = filtrados.map(u => `
+                    <div class="centros-custo-item" data-usuario="${escapeHtml(u.usuario)}">
+                        <span>${escapeHtml(u.nome || u.usuario)}${u.nome ? ' <span style="color:#8f8f8f;">(' + escapeHtml(u.usuario) + ')</span>' : ''}</span>
+                    </div>
+                `).join('') || '<span style="padding:8px;color:#8f8f8f;font-size:12px;">Nenhum resultado.</span>';
+
+                lista.querySelectorAll('.centros-custo-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        botao.dataset.usuario = item.dataset.usuario;
+                        botao.textContent = item.dataset.usuario;
+                        botao.classList.add('preenchido');
+                        fecharDiretorioPicker();
+                        atualizarAvisoIncompletoLinha(botao.closest('tr'));
+                    });
+                });
+            };
+            renderizarItens('');
+
+            buscaInput.addEventListener('input', () => renderizarItens(buscaInput.value.trim().toLowerCase()));
+            buscaInput.focus();
+        }
+
+        /* ---------- Picker de Perfil (multi-selecao, ate os 3 papeis) ---------- */
+        // Usuario pode acumular os 3 papeis (usuarios.papel + usuario_papeis_extra; perfil triplo): 3 checkboxes, nunca zero.
+        // O principal so e resolvido ao salvar (resolverPapelPrincipal em salvarAlteracoes: RH > Preposto > Gestor).
+        let painelPapelAberto = null;
+
+        function fecharPapelPicker() {
+            if (painelPapelAberto) {
+                painelPapelAberto.remove();
+                painelPapelAberto = null;
+            }
+        }
+        document.addEventListener('click', fecharPapelPicker);
+
+        function abrirPapelPicker(botao) {
+            fecharCentrosCustoPicker();
+            fecharDiretorioPicker();
+            fecharPapelPicker();
+
+            const tr = botao.closest('tr');
+            const selecionados = JSON.parse(botao.dataset.papeis || '[]');
+
+            const panel = document.createElement('div');
+            panel.className = 'centros-custo-painel';
+            // So existe 1 Administrador: com a conta dele na lista, ADMIN nao e oferecido a mais ninguem.
+            const jaExisteAdmin = !!document.querySelector('.admin-linha[data-travada]');
+            const itensHtml = PAPEIS.filter(p => p.valor !== 'administrador' || !jaExisteAdmin).map(p => `
+                <label class="centros-custo-item">
+                    <input type="checkbox" value="${p.valor}" ${selecionados.includes(p.valor) ? 'checked' : ''}>
+                    <span>${p.rotulo}</span>
+                </label>
+            `).join('');
+            panel.innerHTML = `<div class="centros-custo-painel-lista">${itensHtml}</div>`;
+            document.body.appendChild(panel);
+            painelPapelAberto = panel;
+            panel.addEventListener('click', e => e.stopPropagation());
+
+            const rect = botao.getBoundingClientRect();
+            panel.style.top = Math.max(12, Math.min(rect.bottom + 6, window.innerHeight - 160)) + 'px';
+            panel.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - 276)) + 'px';
+
+            const checks = panel.querySelectorAll('input[type=checkbox]');
+            checks.forEach(chk => {
+                chk.addEventListener('change', () => {
+                    // Administrador e perfil unico: marcar ele desmarca os
+                    // outros, e marcar qualquer outro desmarca ele.
+                    if (chk.checked) {
+                        checks.forEach(c => {
+                            if (c !== chk && (chk.value === 'administrador' || c.value === 'administrador')) c.checked = false;
+                        });
+                    }
+                    const marcados = [...checks].filter(c => c.checked).map(c => c.value);
+                    if (marcados.length === 0) {
+                        // Perfil e sempre obrigatorio - nao deixa desmarcar o ultimo.
+                        chk.checked = true;
+                        return;
+                    }
+                    botao.dataset.papeis = JSON.stringify(marcados);
+                    botao.textContent = rotuloPapeis(marcados);
+                    atualizarVisibilidadePapel(tr, marcados);
+                });
+            });
+        }
+
+        // Mensagem no rodape da tabela (mesma caixa que salvarAlteracoes usa).
+        function mostrarStatus(msg, tipo) {
+            const statusBox = document.getElementById('admin-status');
+            statusBox.style.display = 'block';
+            statusBox.style.color = tipo === 'erro' ? '#e74c3c' : '#2ecc71';
+            statusBox.innerText = msg;
+        }
+
+        async function salvarAlteracoes() {
+            const recusadas = []; // linhas que o servidor recusou: as outras seguem e estas voltam pra tela com o motivo
+            let tentadas = 0;
+            const btnSalvar = document.getElementById('btn-salvar-planilha');
+            const statusBox = document.getElementById('admin-status');
+
+            // Linha com usuario escolhido mas sem Perfil (e/ou Centro de Custo aplicavel) fica DE FORA (nao vira cadastro quebrado); as outras sao salvas normalmente.
+            const linhasIncompletas = [...document.querySelectorAll('.admin-linha')]
+                .map(linha => ({ linha, usuario: valorUsuarioLinha(linha).trim(), faltando: partesFaltantesLinha(linha) }))
+                .filter(info => info.usuario && info.faltando.length > 0);
+
+            btnSalvar.innerText = "SALVANDO...";
+            btnSalvar.disabled = true;
+            statusBox.style.display = "block";
+            statusBox.style.color = "#f39c12";
+            statusBox.innerText = "Salvando alteracoes...";
+
+            try {
+                const linhasHTML = document.querySelectorAll('.admin-linha');
+                for (const linha of linhasHTML) {
+                    if (linha.dataset.travada) continue; // conta Administrador: nunca e regravada
+                    if (linhasIncompletas.some(info => info.linha === linha)) continue;
+                    const id = linha.dataset.id || null;
+                    const usuario = valorUsuarioLinha(linha).trim();
+                    const papelBtn = linha.querySelector('.centros-custo-btn[data-papeis]');
+                    const papeisEscolhidos = papelBtn ? JSON.parse(papelBtn.dataset.papeis || '[]') : [];
+                    const { papel, papeis_extra } = resolverPapelPrincipal(papeisEscolhidos);
+                    const centrosBtn = linha.querySelector('.centros-custo-btn[data-centros]');
+                    const centros_custo = centrosBtn ? JSON.parse(centrosBtn.dataset.centros || '[]') : [];
+                    const coberturaBtn = linha.querySelector('.centros-custo-btn[data-centros-cobre]');
+                    const coberturaEscolhida = coberturaBtn ? JSON.parse(coberturaBtn.dataset.centrosCobre || '[]') : [];
+                    // A linha mostra UM botao de Cobertura mesmo com os 2 papeis (Preposto manda, ver LIMITACAO CONHECIDA em calcularEstadoCamposEscopo); manda pro campo certo conforme o papel presente.
+                    // O lado nao mostrado vai como null (nao []!): o backend so apaga/regrava com array de verdade (sincronizarCoberturaGestor/sincronizarCentroCobertura em login.php), e [] apagaria a Cobertura oculta a cada salvar.
+                    const centro_custo_cobre = papeisEscolhidos.includes('preposto') ? coberturaEscolhida : null;
+                    // Gestor E Preposto sem RH: o lado Gestor tem seletores proprios (data-centros-gestor / data-centros-cobre-gestor).
+                    const porPapel = calcularEstadoCamposEscopo(papeisEscolhidos).porPapel;
+                    const lerLista = (seletor, chave) => JSON.parse(linha.querySelector(seletor)?.dataset[chave] || '[]');
+                    const centro_custo_cobre_gestor = porPapel ? lerLista('.centros-custo-btn[data-centros-cobre-gestor]', 'centrosCobreGestor')
+                        : (!papeisEscolhidos.includes('preposto') && papeisEscolhidos.includes('gestor')) ? coberturaEscolhida : null;
+                    const centros_custo_gestor = porPapel ? lerLista('.centros-custo-btn[data-centros-gestor]', 'centrosGestor') : null;
+
+                    // Linha nova sem usuario escolhido no picker: rascunho vazio, nada a salvar.
+                    if (!usuario) continue;
+
+                    const registro = { usuario, papel, papeis_extra, centros_custo, centro_custo_cobre, centro_custo_cobre_gestor, centros_custo_gestor };
+                    if (id) registro.id = id;
+
+                    tentadas++;
+                    try {
+                        await dbUsuariosSalvar(registro);
+                    } catch (err) {
+                        recusadas.push({ linha, usuario, erro: err.message || 'erro ao salvar' });
+                    }
+                }
+
+                statusBox.style.color = "#2ecc71";
+                statusBox.innerText = "Alteracoes salvas com sucesso!";
+                await carregarUsuarios();
+
+                if (linhasIncompletas.length > 0 || recusadas.length > 0) {
+                    // O que ficou de fora volta pra tela como estava (com o "Falta:" na linha), pra corrigir e salvar de novo.
+                    const tbody = document.getElementById('admin-tbody');
+                    [...linhasIncompletas, ...recusadas].forEach(({ linha }) => {
+                        const recarregada = linha.dataset.id && tbody.querySelector(`.admin-linha[data-id="${linha.dataset.id}"]`);
+                        if (recarregada) recarregada.replaceWith(linha); else tbody.appendChild(linha);
+                    });
+                    const partes = [
+                        ...linhasIncompletas.map(info => `${info.usuario} (falta ${info.faltando.join(', ')})`),
+                        ...recusadas.map(info => `${info.usuario} (${info.erro})`),
+                    ];
+                    // Servidor recusou todas as linhas enviadas (ex.: sessao sem permissao, rede): nada foi salvo.
+                    const nadaSalvo = recusadas.length > 0 && recusadas.length === tentadas;
+                    const motivos = [...new Set(recusadas.map(info => info.erro))];
+                    mostrarStatus(nadaSalvo && motivos.length === 1 && linhasIncompletas.length === 0
+                        ? `Nada foi salvo: ${motivos[0]}`
+                        : `${nadaSalvo ? 'Nada foi salvo' : 'Alteracoes salvas, menos estes usuarios (ficaram de fora, nada foi gravado neles)'}: ${partes.join('; ')}. Corrija e salve de novo.`, 'erro');
+                }
+
+            } catch (err) {
+                console.error("Erro ao salvar:", err);
+                statusBox.style.color = "#e74c3c";
+                statusBox.innerText = err.message || "Erro ao salvar. Tente novamente.";
+            } finally {
+                btnSalvar.innerText = "SALVAR ALTERACOES";
+                btnSalvar.disabled = false;
+            }
+        }
+
+        // Aviso ao sair com cadastro novo incompleto: o navegador nao deixa customizar o dialogo nativo, entao so mostra a mensagem generica;
+        // o detalhe de quais partes faltam fica na linha (atualizarAvisoIncompletoLinha). E so rede de seguranca.
+        window.addEventListener('beforeunload', (e) => {
+            const temLinhaIncompleta = [...document.querySelectorAll('.admin-linha')]
+                .some(linha => !linha.dataset.id
+                    && valorUsuarioLinha(linha).trim()
+                    && partesFaltantesLinha(linha).length > 0);
+
+            if (!temLinhaIncompleta) return;
+            e.preventDefault();
+            e.returnValue = '';
+        });
+
+        carregarUsuarios();
+    </script>
+</body>
+</html>

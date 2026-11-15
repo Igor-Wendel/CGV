@@ -1,0 +1,203 @@
+# Setup LOCAL de desenvolvimento/demo. Producao e o stack.yml (Docker Swarm, publicado pelo
+# .gitlab-ci.yml). Portas dedicadas (8090/3307), diferentes das do SAF (8080/3306), para rodar
+# os dois ao mesmo tempo.
+#
+# Variaveis de ambiente: mesmo contrato do stack.yml. Aqui as senhas vem em texto (do .env); no
+# servidor, de secret (*_FILE). O backend prefere o ambiente quando DB_HOST existe.
+
+# Credenciais do banco local - so dev, por isso em texto aqui.
+x-banco: &banco
+  TZ: America/Sao_Paulo
+  DB_HOST: db
+  DB_PORT: "3306"
+  DB_NAME: cgv_dev
+  DB_USER: cgv_dev
+  DB_PASS: cgv_dev_local_only
+
+x-protheus: &protheus
+  # So funcionam de verdade com as variaveis preenchidas no .env - sem elas o
+  # sync sai sozinho, sem erro, e a busca do CDV devolve 503.
+  PROTHEUS_DB_HOST: ${PROTHEUS_DB_HOST:-}
+  PROTHEUS_DB_PORT: ${PROTHEUS_DB_PORT:-1433}
+  PROTHEUS_DB_NAME: ${PROTHEUS_DB_NAME:-}
+  PROTHEUS_DB_DOMAIN: ${PROTHEUS_DB_DOMAIN:-}
+  PROTHEUS_DB_USER: ${PROTHEUS_DB_USER:-}
+  PROTHEUS_DB_PASSWORD: ${PROTHEUS_DB_PASSWORD:-}
+
+x-ldap: &ldap
+  # Directory USC + LDAP (login.php) - vazias por padrao no local; criar
+  # usuario local com senha propria continua funcionando.
+  USC_API_URL: ${USC_API_URL:-}
+  USC_API_TOKEN: ${USC_API_TOKEN:-}
+  LDAP_HOST: ${LDAP_HOST:-}
+  LDAP_PORT: ${LDAP_PORT:-389}
+  LDAP_DOMAIN: ${LDAP_DOMAIN:-}
+  LDAP_BIND_DN: ${LDAP_BIND_DN:-}
+  LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:-}
+
+# Rotacao de log (o json-file padrao do Docker nunca apaga nada).
+x-log: &log
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  app:
+    build: .
+    # Mesmo nome nos servicos que usam este Dockerfile (app/sync): sem isso o Compose gera uma
+    # imagem por servico e reconstruir um NAO atualiza o outro.
+    image: cgv-app:latest
+    restart: unless-stopped
+    ports:
+      # So localhost - acesso externo passa pelo tunel (cloudflared).
+      - "127.0.0.1:8090:80"
+    volumes:
+      - .:/var/www/html
+    environment:
+      <<: [*banco, *protheus, *ldap]
+      # SMTP do botao de e-mail de beneficios/bene-intermitente.html
+      # (backend/api/enviar-email-intermitente.php).
+      SMTP_HOST: ${SMTP_HOST:-smtp.example.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_NOME: ${SMTP_FROM_NOME:-CGV - Controle Geral de Volantes}
+      # Export de cobertura do SAF (no servidor: volume do SAF montado
+      # read-only, ver stack.yml). Vazio no local = integracao desligada.
+      SAF_COBERTURA_JSON: ${SAF_COBERTURA_JSON:-}
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://localhost/index.html') === false ? 1 : 0);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging: *log
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Rotinas da madrugada (3h), funcao "rodar": sync de colaboradores/centros de custo com o
+  # Protheus, usuarios do directory USC, extensao das vagas de desligamento/afastamento e
+  # fechamento das vencidas. Passo que termina com erro sem gravar o motivo (timeout, erro fatal)
+  # passa por "status-rotina.php falhou", que grava o motivo para o aviso do login.
+  #
+  # Recuperacao ao ligar (so no local): se alguma rotina esta ha mais de 24h sem sucesso
+  # (computador desligado as 3h), roda a cadeia na hora. NAO existe no stack.yml: o servidor fica
+  # ligado 24h e la isso dispararia a cadeia inteira a cada deploy.
+  #
+  # Processo principal: verificar-saude-sync.php de hora em hora (alerta se alguma sincronizacao
+  # ficou mais de 72h sem sucesso); "touch /tmp/heartbeat" a cada volta, e o healthcheck so
+  # confere a idade dele. Na mesma volta: foto da aba Volantes Ociosos (registrar-ociosidade.php,
+  # ANTES da conferencia: logo depois de um deploy ela ja rodou e nao vira alerta de "nunca rodou")
+  # e corte de ferias.
+  sync:
+    build: .
+    image: cgv-app:latest
+    restart: unless-stopped
+    command: >
+      sh -c "
+      rodar() {
+      timeout 3600 php backend/scripts/sync-protheus-colaboradores.php || php backend/scripts/status-rotina.php falhou colaboradores $$? 3600;
+      timeout 600 php backend/scripts/sync-protheus-centros-custo.php || php backend/scripts/status-rotina.php falhou centros_custo $$? 600;
+      timeout 600 php backend/scripts/sync-usuarios-usc.php || php backend/scripts/status-rotina.php falhou usuarios $$? 600;
+      timeout 300 php backend/scripts/estender-solicitacoes-desligamento.php || php backend/scripts/status-rotina.php falhou estender_desligamento $$? 300;
+      timeout 300 php backend/scripts/estender-solicitacoes-afastamento.php || php backend/scripts/status-rotina.php falhou estender_afastamento $$? 300;
+      timeout 300 php backend/scripts/fechar-solicitacoes-vencidas.php || php backend/scripts/status-rotina.php falhou fechar_vencidas $$? 300;
+      touch /tmp/heartbeat;
+      };
+      ( if php backend/scripts/status-rotina.php atrasada; then
+      echo \"[sync] ultima rodada ha mais de 24h - recuperando agora, sem esperar as 03:00\" >&2;
+      rodar;
+      fi;
+      while true; do
+      agora=$$(date +%s);
+      alvo=$$(date -d '03:00' +%s);
+      if [ \"$$alvo\" -le \"$$agora\" ]; then alvo=$$(date -d 'tomorrow 03:00' +%s); fi;
+      echo \"[sync] proxima rodada as 03:00 ($$(date -d @$$alvo)), esperando $$((alvo - agora))s...\" >&2;
+      sleep $$((alvo - agora));
+      rodar;
+      done ) &
+      while true; do
+      timeout 300 php backend/scripts/registrar-ociosidade.php || php backend/scripts/status-rotina.php falhou ociosidade $$? 300;
+      php backend/scripts/verificar-saude-sync.php;
+      timeout 300 php backend/scripts/cortar-coberturas-ferias.php || php backend/scripts/status-rotina.php falhou cortar_ferias $$? 300;
+      touch /tmp/heartbeat;
+      sleep 3600;
+      done"
+    volumes:
+      - .:/var/www/html
+    environment:
+      <<: [*banco, *protheus, *ldap]
+      SAF_COBERTURA_JSON: ${SAF_COBERTURA_JSON:-}
+    healthcheck:
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/heartbeat 2>/dev/null || echo 0) )) -lt 7200"]
+      interval: 5m
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: *log
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo
+      MARIADB_DATABASE: cgv_dev
+      MARIADB_USER: cgv_dev
+      MARIADB_PASSWORD: cgv_dev_local_only
+      MARIADB_ROOT_PASSWORD: cgv_dev_root_local_only
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - cgv_db_data:/var/lib/mysql
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging: *log
+
+  # Backup diario do banco (docker/backup-db.sh), igual ao servico do stack.yml: roda ao subir
+  # e todo dia as 4h, em ./backups (ignorada pelo git, .dockerignore e .htaccess), retencao de 14 dias.
+  backup:
+    image: mariadb:11
+    restart: unless-stopped
+    entrypoint: []
+    # "sh /docker/backup-db.sh": o arquivo e montado :ro, sem garantia do bit
+    # de execucao. Heartbeat depois de cada rodada (;), como no stack.yml.
+    command: >
+      sh -c "
+      sh /docker/backup-db.sh; touch /tmp/heartbeat;
+      while true; do
+      agora=$$(date +%s);
+      alvo=$$(date -d '04:00' +%s);
+      if [ \"$$alvo\" -le \"$$agora\" ]; then alvo=$$(date -d 'tomorrow 04:00' +%s); fi;
+      echo \"[backup] proxima rodada as 04:00 ($$(date -d @$$alvo)), esperando $$((alvo - agora))s...\" >&2;
+      sleep $$((alvo - agora));
+      sh /docker/backup-db.sh; touch /tmp/heartbeat;
+      done"
+    environment:
+      <<: *banco
+      BACKUP_RETENCAO_DIAS: ${BACKUP_RETENCAO_DIAS:-14}
+    volumes:
+      - ./docker/backup-db.sh:/docker/backup-db.sh:ro
+      - ./backups:/backups
+    # Folga de 26h: roda 1x/dia.
+    healthcheck:
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/heartbeat 2>/dev/null || echo 0) )) -lt 93600"]
+      interval: 30m
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: *log
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  cgv_db_data:

@@ -1,0 +1,4651 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+/* ============================================================
+   1. CONFIGURACOES GERAIS E LAYOUT
+   ============================================================ */
+body, html { 
+    margin: 0;             
+    padding: 0;            
+    font-family: 'Segoe UI', Arial, sans-serif; 
+    background-color: #e9e9e9; 
+    height: 100%;          
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+
+    /* Tokens do tema CLARO (padrao): mesmos nomes --dt-* do tema escuro ([data-tema=escuro] body, fim do arquivo), que sobrescreve quando ligado.
+       Declarados em body, nao em :root/html, por bug de parser do Chrome (regra com alvo html/:root some). */
+    --dt-bg: #e9e9e9;
+    --dt-surface: #ffffff;
+    --dt-surface-2: #f8f9fa;
+    --dt-border: #dcdcdc;
+    --dt-text: #000000;
+    --dt-text-muted: #6b6b6b;
+    --dt-row-hover: #e6f1f1;
+}
+
+/* ============================================================
+   2. BARRA DE NAVEGACAO (HOTBAR) - DUAS PILULAS SEPARADAS
+   ============================================================ */
+/* A hotbar e um container transparente com 2 pilulas: .hotbar-nav (paginas) e .hotbar-util (sino + perfil), cada uma com fundo/sombra/raio proprios. Sem titulo. */
+.hotbar {
+    position: fixed;
+    top: 15px;
+    left: 2%;
+    width: 96%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    z-index: 1000;
+    box-sizing: border-box;
+}
+
+.hotbar-nav, .hotbar-util {
+    background-color: #006f73;
+    border-radius: 50px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+}
+
+.hotbar-nav {
+    padding: 0 30px;
+    height: 70px;
+    flex: 1;
+    min-width: 0;
+}
+
+.hotbar-util {
+    padding: 0 22px;
+    height: 70px;
+    flex: none;
+    gap: 18px;
+}
+
+.hotbar-dropdown-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    /* Bandeja encolhida junto (110px) pra nao invadir o botao seguinte; ver min-width abaixo. */
+    margin-right: 29px;
+}
+
+.hotbar-dropdown-container:last-of-type {
+    margin-right: 0;
+}
+
+/* Indicador inferior: sem fundo nem borda, so o texto e uma barrinha que cresce embaixo no hover/ativo (:after abaixo). */
+.hotbar-btn {
+    background-color: transparent;
+    color: rgba(255, 255, 255, 0.75);
+    padding: 8px 12px;
+    border: none;
+    border-radius: 0;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 12px;
+    position: relative;
+    transition: color 0.15s ease;
+}
+
+.hotbar-btn::after {
+    content: '';
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 2px;
+    height: 2px;
+    background: #ffffff;
+    border-radius: 2px;
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.18s ease;
+}
+
+.hotbar-btn:hover {
+    color: #ffffff;
+}
+.hotbar-btn:hover::after {
+    transform: scaleX(0.5);
+}
+
+.hotbar-btn.active {
+    color: #ffffff;
+}
+.hotbar-btn.active::after {
+    transform: scaleX(1);
+}
+
+/* --- INICIO DO MENU SUSPENSO PREMIUM (PILL STACK) --- */
+/* Fechado: continua ocupando espaco (sem display:none), so invisivel e sem interacao, pra animar abertura e fechamento (display nao transiciona).
+   O visibility some com atraso igual a transicao (0.28s) pra continuar visivel durante o fade de saida. */
+/* Vidro fosco: fundo verde translucido com backdrop-filter, desencostado do botao (margin-top), cantos arredondados nos 4 lados. */
+.hotbar-dropdown-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: rgba(0, 90, 93, 0.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    /* 128px: 110px quebrava a descricao em ate 3 linhas (o texto usa a largura toda via flex:1 no .item-textos). */
+    min-width: 128px;
+    box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.35);
+    border-radius: 12px;
+    z-index: 10000;
+    margin-top: 6px;
+    padding: 3px;
+    box-sizing: border-box;
+
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-10px) scale(0.98);
+    transform-origin: top left;
+    transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0s linear 0.28s;
+}
+
+.hotbar-dropdown-content.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+    /* Delay zerado: ao ABRIR, visibility fica visivel na hora; o atraso de 0.28s so existe no estado fechado (fade de saida). */
+    transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0s linear 0s;
+}
+
+/* Efeito cascata: cada item entra com atraso a mais que o anterior (coberto ate 5 itens). */
+.hotbar-dropdown-content.show .item-premium {
+    animation: itemCascadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hotbar-dropdown-content.show .item-premium:nth-child(1) { animation-delay: 0.03s; }
+.hotbar-dropdown-content.show .item-premium:nth-child(2) { animation-delay: 0.08s; }
+.hotbar-dropdown-content.show .item-premium:nth-child(3) { animation-delay: 0.13s; }
+.hotbar-dropdown-content.show .item-premium:nth-child(4) { animation-delay: 0.18s; }
+.hotbar-dropdown-content.show .item-premium:nth-child(5) { animation-delay: 0.23s; }
+
+@keyframes itemCascadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Item sem fundo/borda em repouso (o vidro ja e a bandeja); so acende um branco translucido no hover. */
+.item-premium {
+    display: flex;
+    /* flex-start (nao center): com a descricao, o item tem 2 linhas - o
+       icone alinha com o topo (titulo), nao com o centro do bloco inteiro. */
+    align-items: flex-start;
+    gap: 4px;
+    padding: 3px 5px;
+    background-color: transparent;
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 0.15s ease-in-out;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.item-premium:hover {
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.item-premium svg {
+    color: rgba(255, 255, 255, 0.85);
+    transition: color 0.15s ease-in-out;
+    flex-shrink: 0;
+    /* 16px: sobrescreve o width/height inline do svg (CSS tem prioridade). */
+    width: 16px;
+    height: 16px;
+    /* Otico: com o titulo em negrito acima da descricao menor, uma pequena
+       folga no topo centraliza o icone melhor em relacao a 1a linha. */
+    margin-top: 1px;
+}
+
+.item-premium:hover svg {
+    color: #ffffff;
+}
+
+.item-premium:active {
+    background-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Titulo em negrito + uma linha de descricao por item. min-width:0 e obrigatorio (senao o filho flex nao encolhe abaixo do proprio texto);
+   flex:1 faz o texto usar a largura toda do item. */
+.item-textos {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 2px;
+    min-width: 0;
+}
+
+.item-textos b {
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.item-desc {
+    font-size: 10.5px;
+    font-weight: 400;
+    line-height: 1.3;
+    color: rgba(255, 255, 255, 0.65);
+    transition: color 0.15s ease-in-out;
+    white-space: normal;
+}
+
+.item-premium:hover .item-desc {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* ============================================================
+   3. CONTEUDO PRINCIPAL
+   ============================================================ */
+.conteudo-principal {
+    flex: 1;               
+    padding: 120px 20px 40px 20px; 
+}
+
+.controles-superiores {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 0 70px;
+}
+
+
+.btn-importar { 
+    background-color: #006f73; 
+    color: white !important; 
+    border: none; 
+    border-radius: 5px; 
+    cursor: pointer;
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    transition: all 0.3s ease; 
+    font-weight: bold; 
+    font-size: 13px; 
+    text-decoration: none; 
+    padding: 10px 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2) 
+}
+
+.btn-importar:hover { 
+    background-color: #5b5375 !important; 
+    box-shadow: 0 6px 10px rgba(0,0,0,0.3); 
+    transform: translateY(-2px);           
+}
+
+/* Estilo comum dos Botoes Importar e Exportar (Formato Verde escuro) */
+.btn-exportar {
+    background-color: #006f73; 
+    color: white !important; 
+    border: none; 
+    border-radius: 5px; 
+    cursor: pointer;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    transition: all 0.3s ease; 
+    font-weight: bold; 
+    font-size: 13px;
+    text-decoration: none; 
+    padding: 10px 20px;
+}
+
+/* Cor muda para vermelho intenso ao passar o mouse por cima e ele sobe levemente no eixo Y */
+.btn-exportar:hover {
+    background-color: #5b5375 !important; 
+    box-shadow: 0 6px 12px rgba(0,0,0,0.25); 
+    transform: translateY(-1px); 
+}
+
+
+.contador-colaboradores {
+    background-color: #006f73;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+/* Quadrados "Abertas"/"Fechadas" (coberturas/solicitacao.html): clicaveis, filtram a tabela por solicitacoes sem volante (abertas) ou com volante (fechadas);
+   clicar de novo remove o filtro (alternarFiltroStatusSolicitacao). */
+.solic-stats {
+    display: flex;
+    gap: 14px;
+}
+
+.solic-stat {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+    width: 96px;
+    height: 96px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background-color: var(--dt-surface);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    transition: box-shadow 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+}
+
+.solic-stat:hover {
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.16);
+    transform: translateY(-1px);
+}
+
+.solic-stat.ativo {
+    background-color: var(--dt-surface-2);
+}
+
+.solic-stat svg {
+    width: 20px;
+    height: 20px;
+    margin-bottom: 2px;
+}
+
+.solic-stat.abertas svg { color: #e08a1e; }
+.solic-stat.fechadas svg { color: #2f9e5c; }
+/* "Nova solicitacao" (so preposto): cor de acao/CTA do site, pra destacar das cores de status das outras duas. */
+.solic-stat.nova svg { color: #006f73; }
+
+
+/* BARRA SEGMENTADA DE INDICADORES (FOPAG/PFM): 3 segmentos numa barra, cada um cresce so o quanto o numero precisa.
+   No lado oposto (.fopag-acoes), seletor de mes + Exportar (fopag/pfm.js). */
+.fopag-toolbar {
+    display: flex; justify-content: space-between; align-items: center; gap: 20px;
+    margin-bottom: 24px; flex-wrap: wrap;
+    /* Mesmo respiro lateral de .controles-superiores nas outras paginas. */
+    padding: 0 70px;
+}
+
+.fopag-indicadores {
+    display: flex; background-color: #ffffff; border: 1px solid #e2e8ea; border-radius: 10px;
+    overflow: hidden; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.fopag-indicador {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    display: flex; align-items: center; gap: 10px; padding: 14px 22px;
+    border-left: 1px solid #eef2f3;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    transition: background-color 0.15s ease;
+}
+.fopag-indicador:first-child { border-left: none; }
+.fopag-indicador:hover { background-color: #fafbfb; }
+.fopag-indicador.ativo { background-color: #f7f9f9; }
+
+.fopag-indicador svg { width: 20px; height: 20px; flex-shrink: 0; }
+.fopag-indicador.pericul svg { color: #f08231; }
+.fopag-indicador.insalub svg { color: #5b5375; }
+.fopag-indicador.difsal svg { color: #4658c3; }
+
+.fopag-indicador-textos { display: flex; flex-direction: column; gap: 3px; }
+.fopag-indicador-num { font-size: 19px; font-weight: 800; line-height: 1; color: #1f2933; white-space: nowrap; }
+.fopag-indicador-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: #8a97a0; white-space: nowrap; }
+
+.fopag-acoes { display: flex; align-items: center; gap: 10px; }
+
+.fopag-mes-container { position: relative; }
+
+.fopag-mes-pill {
+    display: flex; align-items: center; gap: 8px; height: 38px; box-sizing: border-box;
+    background-color: #ffffff; border: 1px solid #d7dee0; border-radius: 8px; padding: 0 12px;
+    font-size: 12.5px; font-weight: 600; color: #1f2933; cursor: pointer;
+    font-family: 'Segoe UI', Arial, sans-serif; transition: border-color 0.15s ease;
+}
+.fopag-mes-pill svg { width: 16px; height: 16px; flex-shrink: 0; color: #8a97a0; }
+.fopag-mes-pill:hover { border-color: #006f73; }
+
+.fopag-mes-dropdown {
+    /* z-index alto de proposito: o "thead th" da tabela usa sticky + z-index:100 e cortaria a lista. */
+    display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 200;
+    min-width: 160px; max-height: 260px;
+    background-color: #ffffff; border: 1px solid #e2e8ea; border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1); padding: 4px;
+    /* O titulo ("< 2026") nao rola com os meses (senao um mes vazaria por cima no canto arredondado): flex coluna,
+       titulo fixo (flex-shrink:0) + lista que rola (.fopag-mes-lista). */
+    flex-direction: column;
+    overflow: hidden;
+}
+.fopag-mes-dropdown.mostrando { display: flex; }
+
+/* So os itens rolam; min-height:0 deixa o filho flex encolher e rolar em vez de esticar o pai (.fopag-mes-dropdown, max-height:260px). */
+.fopag-mes-lista {
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.fopag-mes-item {
+    padding: 8px 10px; font-size: 12.5px; color: #1f2933; cursor: pointer; border-radius: 5px;
+}
+.fopag-mes-item:hover { background-color: #f7f9f9; }
+.fopag-mes-item.ativo { background-color: #e6f2f2; color: #006f73; font-weight: 700; }
+
+/* Seletor de periodo do PFM em 2 passos (ano, depois mes); o passo do mes mostra "< 2026" clicavel pra voltar ao ano. */
+.fopag-mes-dropdown-titulo {
+    display: flex; align-items: center; gap: 6px; padding: 6px 10px 10px 10px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+    color: #8a97a0; border-bottom: 1px solid #f1f3f5; margin-bottom: 4px;
+    flex-shrink: 0;
+}
+.fopag-mes-dropdown-titulo.clicavel { cursor: pointer; color: #006f73; }
+.fopag-mes-dropdown-titulo.clicavel:hover { text-decoration: underline; }
+
+/* Modal compacto do salario minimo vigente (base da insalubridade), pedido a cada troca de periodo do PFM. Reaproveita o overlay de .modal-notificacao-cobertura. */
+.modal-salario-minimo-content {
+    background-color: #ffffff; width: 380px; max-width: 92vw; border-radius: 10px;
+    color: #1f2933; box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+    padding: 26px; display: flex; flex-direction: column; gap: 16px;
+}
+.modal-salario-minimo-content h3 { margin: 0; font-size: 16px; }
+.modal-salario-minimo-content p { margin: 0; font-size: 13px; color: #64748b; }
+.modal-salario-minimo-content input {
+    border: 1px solid #d7dee0; border-radius: 8px; padding: 10px 12px;
+    font-size: 15px; color: #1f2933; font-family: 'Segoe UI', Arial, sans-serif;
+}
+.modal-salario-minimo-content input:focus { outline: none; border-color: #006f73; }
+.modal-salario-minimo-acoes { display: flex; justify-content: flex-end; gap: 10px; }
+.btn-salario-minimo-cancelar, .btn-salario-minimo-confirmar {
+    border-radius: 7px; padding: 9px 16px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+.btn-salario-minimo-cancelar { background: #fff; border: 1px solid #d7dee0; color: #64748b; }
+.btn-salario-minimo-cancelar:hover { border-color: #b5b5b5; color: #1f2933; }
+.btn-salario-minimo-confirmar { background: #006f73; border: 1px solid #006f73; color: #fff; }
+.btn-salario-minimo-confirmar:hover { background: #00595c; }
+
+.btn-exportar-fopag {
+    display: flex; align-items: center; gap: 7px; background-color: #006f73; color: #ffffff;
+    border: none; border-radius: 8px; padding: 0 16px; height: 38px; box-sizing: border-box;
+    font-size: 12.5px; font-weight: 700; cursor: pointer;
+    font-family: 'Segoe UI', Arial, sans-serif; transition: background-color 0.15s ease;
+}
+
+/* BOTAO DE ARQUIVO (Importar/Exportar): mesmo desenho do Exportar do FOPAG/PFM (.btn-exportar-fopag), generalizado pra Beneficios (Intermitentes).
+   Copia propria de proposito: nao mexe em .btn-importar/.btn-exportar (usadas por outros botoes, ex: "DESIGNAR VOLANTE" em coberturas/solicitacoes-gestor.html).
+   Funciona em <button> e <label for="..."> (input file escondido). */
+.btn-arquivo {
+    display: inline-flex; align-items: center; gap: 7px; background-color: #006f73; color: #ffffff !important;
+    border: none; border-radius: 8px; padding: 0 16px; height: 38px; box-sizing: border-box;
+    font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: none;
+    font-family: 'Segoe UI', Arial, sans-serif; transition: background-color 0.15s ease;
+}
+.btn-arquivo:hover { background-color: #00565a; }
+.btn-arquivo svg { width: 16px; height: 16px; flex-shrink: 0; }
+.btn-exportar-fopag svg { width: 16px; height: 16px; flex-shrink: 0; }
+.btn-exportar-fopag:hover { background-color: #00565a; }
+
+/* Texto ("NOVA") no lugar do numero - a palavra e mais larga que 2 digitos,
+   entao usa uma fonte um pouco menor pra caber sem quebrar linha. */
+/* "NOVA": as 2 linhas ficam identicas (tamanho, peso e cinza do .solic-stat-lbl). As 2 classes juntas de proposito:
+   especificidade 0,3,0 vence ".solic-stat .solic-stat-num" (0,2,0), que vem depois no arquivo. */
+.solic-stat .solic-stat-num.solic-stat-num-texto {
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.3;
+    color: #8a97a0;
+}
+
+.solic-stat .solic-stat-num {
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+    color: #1f2933;
+}
+
+.solic-stat .solic-stat-lbl {
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+    line-height: 1.3;
+    color: #8a97a0;
+}
+
+/* Toolbar da direita (colaboradores/cdv.html): uma unica pilula (busca integrada) encostada na direita (margin-left:auto). */
+.toolbar-flutuante {
+    display: flex;
+    align-items: center;
+    background-color: #ffffff;
+    border-radius: 999px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 5px 6px 5px 16px;
+    gap: 10px;
+    width: fit-content;
+    margin-left: auto;
+}
+
+/* all:unset no botao inteiro (nao so no X) - clicar em qualquer parte
+   (icone, texto ou X) limpa os filtros, nao so no circulo pequeno do X. */
+.toolbar-filtros-ativos {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 999px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #c0392b;
+    white-space: nowrap;
+    transition: background-color 0.15s ease;
+}
+
+.toolbar-filtros-ativos:hover {
+    background-color: #fbe4e1;
+}
+
+.toolbar-filtros-ativos svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.toolbar-filtros-x {
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: #fbe4e1;
+    color: #c0392b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.toolbar-separador {
+    width: 1px;
+    height: 18px;
+    background-color: #e4e8ea;
+}
+
+.toolbar-contador {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 12px;
+    color: #8a97a0;
+    white-space: nowrap;
+}
+
+.toolbar-contador b {
+    color: #1f2933;
+    font-weight: 700;
+}
+
+.toolbar-btn-add {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+    background-color: #006f73;
+    color: #ffffff;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 700;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.toolbar-btn-add:hover {
+    transform: rotate(90deg);
+    background-color: #005a5d;
+}
+
+/* Paginacao (Anterior/Proxima) - fora da caixa com rolagem da tabela, pra
+   ficar sempre visivel embaixo dela, sem precisar rolar pra alcancar. */
+.paginacao-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 18px;
+    margin-top: 15px;
+}
+
+.btn-paginacao {
+    background-color: #006f73;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13px;
+    padding: 8px 18px;
+    transition: all 0.3s ease;
+}
+
+.btn-paginacao:hover:not(:disabled) {
+    background-color: #5b5375;
+    transform: translateY(-1px);
+}
+
+.btn-paginacao:disabled {
+    background-color: #c2c2c2;
+    cursor: not-allowed;
+}
+
+.paginacao-info {
+    font-weight: bold;
+    color: #444;
+    font-size: 13px;
+}
+
+/* Junta o contador numerico com o botao de criar (CDV/SOLICITACAO/VOLANTES). margin-left:auto empurra pra direita mesmo sendo filho unico (CDV);
+   nos outros e redundante mas inofensivo. */
+.contador-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-left: auto;
+}
+
+/* ============================================================
+   5. TABELA BASE (ESTILO SAAS / EXCEL PROFISSIONAL)
+   ============================================================ */
+.tabela-visualizacao {
+    background-color: var(--dt-surface);
+    border-radius: 8px !important; /* Curvatura suave e séria (padrão Office 365) */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    border: 1px solid #b5b5b5 !important;
+    width: 100%;
+    /* border-box: senao width:100% soma os 2px da borda e estoura o container (cabecalho verde vazando na pagina Intermitentes). */
+    box-sizing: border-box;
+    /* Area de rolagem propria (estilo Excel): thead sticky fica fixo e so as linhas rolam. Precisa ser overflow-y:auto (com hidden o sticky quebra).
+       So vale pras paginas sem cabecalho separado (o bloco :has(.tabela-cabecalho-fixo) abaixo desliga isso). */
+    max-height: 65vh;
+    overflow-y: auto !important;
+    overflow-x: hidden !important; /* mantem a mesma "guilhotina" nas quinas nos outros eixos */
+    scroll-snap-type: y mandatory;
+}
+
+table {
+    border-collapse: collapse !important; /* Devolve a grade milimétrica nativa do Excel */
+    border-spacing: 0;
+    width: 100%;
+    font-size: 11px;
+}
+
+/* border-collapse:collapse quebra o z-index de celulas sticky (linha rolada vaza por cima do cabecalho); separate devolve o empilhamento.
+   So em .tabela-visualizacao, pra nao engrossar a grade das outras tabelas. Mitigacao das paginas sem cabecalho separado (ver :has(.tabela-cabecalho-fixo)). */
+.tabela-visualizacao table {
+    border-collapse: separate !important;
+    border-spacing: 0;
+}
+
+thead th {
+    background-color: #006f73;
+    color: white;
+    padding: 10px 12px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border: 1px solid #00565a;
+    font-weight: bold;
+}
+
+
+/* Cabecalho fora da tabela que rola (thead e tbody em 2 tabelas: .tabela-cabecalho-fixo parada + .tabela-corpo-rolavel rolando).
+   O thead sticky dentro da tabela que rola tinha bug de repintura no Chromium/Edge (linha vazando por cima do cabecalho durante o scroll)
+   que border-collapse:separate, will-change, contain:paint, z-index/translateZ e scroll-snap nao resolvem. O :has() abaixo liga esse modo so nas paginas com essa estrutura. */
+.tabela-visualizacao:has(.tabela-cabecalho-fixo) {
+    display: flex !important;
+    flex-direction: column;
+    overflow: hidden !important;
+    scroll-snap-type: none !important;
+    /* O topo da tabela fica a 176px da viewport (85px hotbar + 35px vao + ~56px controles); 100vh - 176px - 40px de respiro preenche a tela em qualquer altura (65vh deixava sobra). */
+    max-height: calc(100vh - 216px) !important;
+}
+
+.tabela-cabecalho-fixo {
+    flex: 0 0 auto;
+    overflow: hidden;
+    box-sizing: border-box; /* o padding-right que o JS aplica (compensando a barra de rolagem do corpo) precisa ENCOLHER a tabela por dentro, nao somar por fora */
+    width: 100%;
+}
+
+.tabela-corpo-rolavel {
+    flex: 1 1 auto;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scroll-snap-type: none !important;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* table-layout fixed no cabecalho e no corpo: as duas tabelas seguem as mesmas proporcoes de coluna abaixo. */
+.tabela-cabecalho-fixo table {
+    table-layout: fixed;
+    /* border-collapse:separate ja vem de ".tabela-visualizacao table" (mais
+       acima) - essa tabela e descendente de .tabela-visualizacao tambem. */
+}
+
+.tabela-corpo-rolavel table {
+    table-layout: fixed;
+}
+
+/* Proporcoes fixas das colunas do CDV (8 colunas, ordem de colunasOriginais em cdv.html), independentes do conteudo;
+   texto maior que a coluna corta com reticencias e aparece completo no tooltip (renderizarLinhas em cdv.html). */
+.tabela-cabecalho-fixo th:nth-child(1), .tabela-corpo-rolavel td:nth-child(1) { width: 5.3%; }  /* FILIAL */
+.tabela-cabecalho-fixo th:nth-child(2), .tabela-corpo-rolavel td:nth-child(2) { width: 15.4%; } /* CENTRO DE CUSTO */
+.tabela-cabecalho-fixo th:nth-child(3), .tabela-corpo-rolavel td:nth-child(3) { width: 6.4%; }  /* MATRICULA */
+.tabela-cabecalho-fixo th:nth-child(4), .tabela-corpo-rolavel td:nth-child(4) { width: 17.7%; } /* NOME */
+.tabela-cabecalho-fixo th:nth-child(5), .tabela-corpo-rolavel td:nth-child(5) { width: 17.3%; } /* FUNCAO */
+.tabela-cabecalho-fixo th:nth-child(6), .tabela-corpo-rolavel td:nth-child(6) { width: 8.6%; }  /* DATA ADMIS. */
+.tabela-cabecalho-fixo th:nth-child(7), .tabela-corpo-rolavel td:nth-child(7) { width: 9.3%; }  /* SALARIO */
+.tabela-cabecalho-fixo th:nth-child(8), .tabela-corpo-rolavel td:nth-child(8) { width: 20.0%; } /* FRENTE */
+
+/* Solicitacoes (coberturas/solicitacao.html): o cabecalho tem rowspan/colspan (PERIODO), entao os nth-child acima cairiam em colunas
+   diferentes no cabecalho e no corpo e desalinhariam - ali as larguras vem so dos <colgroup> da pagina. */
+body.pagina-solicitacao .tabela-cabecalho-fixo th,
+body.pagina-solicitacao .tabela-corpo-rolavel td { width: auto; }
+
+/* Corta com reticencias quando o texto nao cabe; o texto completo aparece no tooltip-flutuante (renderizarLinhas, cdv.html) so se truncado. */
+.tabela-corpo-rolavel td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    /* border-box: senao "width: X%" soma padding+borda (~22px) e o corpo desalinha do cabecalho (th ja e border-box). */
+    box-sizing: border-box;
+}
+
+/* Acabamento de borda de "#minha-tabela thead th" (secao 17), generico pra qualquer pagina com cabecalho separado. */
+.tabela-cabecalho-fixo th {
+    border-right: 1px solid #00565a !important;
+    /* Mesmo motivo do border-box em .tabela-corpo-rolavel td: sem ele cabecalho e corpo desalinham. */
+    box-sizing: border-box;
+}
+.tabela-cabecalho-fixo th:last-child {
+    border-right: none !important;
+}
+
+/* O sticky do "thead th" nao faz nada aqui (o wrapper nunca rola), mas e inofensivo. */
+
+/* TABELA REFINADA (Equipe/Solicitacao/PFM/Volantes/Intermitentes): sem grade vertical, so separador horizontal fino entre linhas, cabecalho teal do site.
+   O modificador .tabela-visualizacao.tabela-refinada cobre thead sticky na mesma tabela e cabecalho separado (.tabela-cabecalho-fixo th); nao mexe em .tabela-visualizacao sem ele. */
+.tabela-refinada.tabela-visualizacao {
+    border-color: #e2e8ea;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+/* "border:none" inteiro, nao so border-right: senao a borda esquerda de cada th (do "border:1px solid" da base) fica como linha vertical fantasma. */
+.tabela-refinada thead th,
+.tabela-refinada .tabela-cabecalho-fixo th {
+    border: none !important;
+}
+.tabela-refinada td {
+    border-left: none; border-right: none; border-top: none;
+    border-bottom: 1px solid #eef2f3;
+}
+
+/* Pontas de cima do cabecalho SEM arredondar. Pra Intermitentes de Beneficios (cabecalho de 2 linhas): o canto arredondado do container cortava o fundo solido do th e deixava respiro entre os cantos.
+   O :has() cobre a tabela unica antiga e o cabecalho separado (.tabela-cabecalho-fixo), este so em body.pagina-intermitentes; as demais paginas continuam arredondadas. */
+.tabela-visualizacao:has(#minha-tabela thead),
+body.pagina-intermitentes .tabela-visualizacao:has(.tabela-cabecalho-fixo) {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+    /* Sem o arredondado, a borda cinza de 1px do container formaria um "L" reto sobre o teal; sem borda de cima, o teal encosta direto na borda externa do cartao. */
+    border-top: none !important;
+}
+
+/* Solicitacao fechada ha 15 dias ou menos (coberturas/solicitacao.html, dentroDaJanelaDeEdicao): ainda pode ter quem cobriu corrigido. Fundo amarelo bem fraco que "respira" (animacao lenta).
+   Mira os <td> (nao so o <tr>), porque "td { background-color: white; }" (regra generica abaixo) pinta por cima do tr.
+   .solic-aberta-cancelavel: mesmo destaque pra solicitacao ABERTA que o Preposto ainda pode cancelar (mesmo dia, ver renderizarLinhas); classe propria pra nao chamar linha aberta de "fechada" no HTML. */
+.solic-fechada-recente td,
+.solic-aberta-cancelavel td {
+    animation: solicFechadaRespira 2.6s ease-in-out infinite;
+}
+@keyframes solicFechadaRespira {
+    0%, 100% { background-color: #fffdf3; }
+    50% { background-color: #fff6d6; }
+}
+.solic-fechada-recente:hover td,
+.solic-aberta-cancelavel:hover td {
+    animation-play-state: paused;
+    background: #ffefb0 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .solic-fechada-recente td, .solic-aberta-cancelavel td { animation: none; background: #fff6d6; }
+}
+
+td {
+    border: 1px solid var(--dt-border);
+    padding: 8px 10px;
+    background-color: var(--dt-surface);
+    text-align: center;
+    vertical-align: middle;
+    color: var(--dt-text);
+}
+
+tr:hover td {
+    background-color: var(--dt-row-hover) !important;
+}
+
+/* Comportamento base do corpo da tabela principal, identico em CDV, SOLICITACAO, VOLANTES e INTERMITENTES. */
+#table-body tr {
+    cursor: pointer;
+    transition: background-color 0.2s;
+    scroll-snap-align: start;
+    /* "always" (nao "normal"): forca o scroll a parar em cada linha mesmo num gesto rapido (senao pula o snap e demora na zona da 1a linha, onde o vazamento acontece). */
+    scroll-snap-stop: always;
+}
+
+#table-body tr:hover {
+    background-color: var(--dt-row-hover);
+}
+
+/* PFM usa um id de tbody proprio (nao #table-body) - mesmo scroll-snap
+   acima, pro mesmo bug de cabecalho sticky (ver .tabela-visualizacao). */
+#tbody-dados-pfm tr {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
+
+#table-body td {
+    text-align: center;
+}
+
+/* Forca alinhamento a esquerda (nomes grandes) - usado em CDV/VOLANTES/PFM */
+.alinhado-esquerda {
+    text-align: left !important;
+    padding-left: 20px !important;
+}
+
+/* Celula liberada pra digitar direto na tabela - usado em SOLICITACAO/
+   VOLANTES/INTERMITENTES */
+#table-body td.td-editavel {
+    background-color: #ffffff !important;
+    border: 1px solid #006f73 !important;
+    border-radius: 3px;
+    color: #000 !important;
+    cursor: text;
+}
+#table-body td.td-editavel:focus {
+    background-color: #ffffff !important;
+    outline: 2px solid #006f73 !important;
+}
+
+.input-edit-tabela {
+    width: 100%;
+    padding: 2px;
+    border: 1px solid #006f73;
+    border-radius: 3px;
+    text-align: center;
+    font-size: 11px;
+    box-sizing: border-box;
+}
+
+/* ============================================================
+   6. BOTAO DE RESET (RODAPE)
+   ============================================================ */
+.btn-reset {
+    background-color: #5b5375;     
+    color: white;                  
+    border: none;                  
+    padding: 10px 20px;            
+    border-radius: 5px;            
+    cursor: pointer;               
+    font-weight: bold;             
+    font-size: 14px;               
+    transition: all 0.3s ease;     
+}
+
+.btn-reset:hover {
+    background-color: #453f5a;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
+}
+
+/* ============================================================
+   7. OCULTAR BARRA DE ROLAGEM (ESTETICO)
+   ============================================================ */
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+    display: none !important;      
+}
+
+html, body {
+    scrollbar-width: none;         
+    -ms-overflow-style: none;      
+    overflow-y: scroll;            
+}
+
+/* ============================================================
+   8. SISTEMA DE NOTIFICACOES E SINO 
+   ============================================================ */
+   
+/* Filho comum dentro da pilula .hotbar-util (flexbox cuida da posicao), junto do .btn-perfil. */
+.btn-sino {
+    position: relative;
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: white;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    transition: transform 0.2s ease;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+}
+
+.btn-sino:hover {
+    transform: scale(1.1) rotate(10deg);
+}
+
+/* ============================================================
+   9. BOTAO DE PERFIL (icone de usuario - abre o painel com avatar de
+   iniciais + nome + Sair, mesmo padrao visual/interacao do painel de
+   Alertas)
+   ============================================================ */
+/* Filho comum dentro da pilula .hotbar-util (injetado por backend/filtro.js, criarBotaoPerfil), junto do sino; icone branco simples. */
+.btn-perfil {
+    position: relative;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.3));
+    transition: transform 0.2s ease;
+}
+
+.btn-perfil svg {
+    width: 100%;
+    height: 100%;
+}
+
+.btn-perfil:hover {
+    transform: scale(1.1);
+}
+
+/* Painel que abre ao clicar no avatar - mesma caixa do painel de Alertas
+   (.painel-notificacoes), com o avatar grande + nome + botao Sair dentro
+   em vez da lista de alertas. */
+.painel-perfil {
+    display: none;
+    position: fixed;
+    top: 95px;
+    right: 4%;
+    width: 220px;
+    background-color: #fff;
+    border: 1px solid #e2e2e2;
+    border-radius: 10px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.16);
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 20px;
+    box-sizing: border-box;
+}
+
+.painel-perfil.show {
+    display: flex;
+}
+
+.perfil-avatar-grande {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background-color: #006f73;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 22px;
+}
+
+.perfil-nome {
+    color: #2b2b2b;
+    font-weight: bold;
+    font-size: 14px;
+    text-align: center;
+    word-break: break-word;
+    margin-bottom: -6px; /* aproxima do papel logo abaixo, sem afetar o gap uniforme do painel */
+}
+
+/* Papel atual (RH/Gestor/Preposto), logo abaixo do nome. Sem perfil duplo
+   e so um texto discreto; com perfil duplo (.perfil-papel-clicavel) vira
+   um botao clicavel pra alternar pro outro papel. */
+.perfil-papel {
+    color: #6b6b6b;
+    font-size: 12px;
+}
+
+.perfil-papel-clicavel {
+    background: rgba(0, 111, 115, 0.08);
+    border: none;
+    color: #006f73;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.perfil-papel-clicavel svg {
+    width: 12px;
+    height: 12px;
+}
+
+.perfil-papel-clicavel:hover {
+    background-color: rgba(0, 111, 115, 0.16);
+}
+
+.perfil-papel-clicavel:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* Perfil triplo completo (2 outros papeis): o clique no papel atual abre este mini menu em vez de trocar direto (so cabe com 1 alternativa, ver .perfil-papel-clicavel). */
+.perfil-papel-wrapper {
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+.perfil-papel-opcoes {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 100%;
+    margin-top: 4px;
+    background-color: #fff;
+    border: 1px solid #e2e2e2;
+    border-radius: 6px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+    overflow: hidden;
+    z-index: 1;
+    min-width: 110px;
+}
+
+.perfil-papel-opcoes.show {
+    display: flex;
+}
+
+.perfil-papel-opcao {
+    background: none;
+    border: none;
+    color: #4a4a4a;
+    font-size: 12px;
+    padding: 8px 12px;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.perfil-papel-opcao:hover {
+    background-color: rgba(0, 111, 115, 0.08);
+}
+
+/* Alternar modo claro/escuro (alternarTema() em backend/filtro.js): mesmo formato do botao Sair, mas neutro (nao e acao destrutiva). */
+.perfil-btn-tema {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: rgba(0, 111, 115, 0.08);
+    color: #006f73;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.perfil-btn-tema svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+.perfil-btn-tema:hover {
+    background-color: rgba(0, 111, 115, 0.16);
+}
+
+.perfil-btn-sair {
+    width: 100%;
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.perfil-btn-sair:hover {
+    background-color: #c0392b;
+}
+
+.badge-notificacao {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background-color: #ff831d;
+    color: white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Borda/texto laranja dos alertas e o sinal semantico de urgencia, nao faz parte do tema escuro/claro. */
+.painel-notificacoes {
+    display: none;
+    position: fixed;
+    top: 95px;
+    right: 4%;
+    width: 350px;
+    background-color: #fff;
+    border: 1px solid #e2e2e2;
+    border-radius: 10px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.16);
+    z-index: 9999;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.painel-notificacoes.show {
+    display: flex;
+}
+
+.painel-header {
+    background-color: #fafafa;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ececec;
+}
+
+.painel-header h3 {
+    margin: 0;
+    color: #2b2b2b;
+    font-size: 16px;
+}
+
+.lista-notificacoes {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.item-notificacao {
+    background-color: #fdf6ee;
+    border-left: 4px solid #f08231;
+    padding: 12px 15px;
+    border-radius: 5px;
+    color: #2b2b2b;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Botao de dispensar (X) no canto de cada alerta do sino. */
+.btn-dispensar-notificacao {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #b5b5b5;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+.btn-dispensar-notificacao:hover {
+    color: #2b2b2b;
+    background: rgba(0,0,0,0.06);
+}
+
+.item-notificacao .data-hora {
+    font-size: 11px;
+    color: #f08231;
+    font-weight: bold;
+    text-align: right;
+}
+
+.notificacao-vazia {
+    text-align: center;
+    color: #9a9a9a;
+    padding: 30px;
+    font-size: 14px;
+}
+
+/* A caixa gigante que vai englobar as mensagens temporarias pra organiza-las */
+.toast-container {
+    position: fixed;
+    top: 75px; /* Exatamente onde se inicia o painel do sino pra dar impressao de nascer de la */
+    right: 40px; /* Exatamente a margem direita da janela do painel */
+    display: flex;
+    flex-direction: column; /* Coloca uma mensagem nova sempre embaixo da outra se tiverem 2 ou 3 juntas */
+    gap: 10px; /* Cria um espaco de 10 pixels entre os balaozinhos */
+    z-index: 10001; /* Maxima prioridade da tela inteira, sobrepoe modais grandes e gavetas */
+    pointer-events: none; /* Garante que voce possa clicar NO FUNDO se os cartoes estiverem invisiveis */
+    transition: top 0.3s ease; /* Anima o deslocamento inteiro da caixa se o JS empurrar ela pra baixo do painel */
+}
+
+/* Formato do Balaozinho/Cartao propriamente dito */
+.toast-msg {
+    background-color: #fff;
+    color: #2b2b2b;
+    border: 1px solid #e2e2e2;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.16);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    /* A logica temporal (Cronometro CSS). Comeca uma animacao que entra na tela, espera 2.5s e depois some sumindo */
+    animation: slideInRight 0.3s ease-out forwards, fadeOutToast 0.5s ease-out 2.5s forwards;
+    border-left: 4px solid #006f73; /* Traco colorido identificador da situacao */
+    max-width: 350px;
+    pointer-events: auto; /* Permite interagir se o usuario clicar */
+}
+
+/* Movimentacao do balao da margem direita (invisivel) ate o eixo neutro da tela (0) */
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* Remove a capacidade de visualizacao suavemente e apaga o balao da luz */
+@keyframes fadeOutToast {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+/* Toast de progresso (mostrarToastProgresso, filtro.js): so entra (sem o fadeOutToast automatico do .toast-msg, que sumiria aos 2.5s com a operacao ainda rodando);
+   so sai quando finalizarToastProgresso troca pra .toast-fechando. */
+.toast-progresso {
+    animation: slideInRight 0.3s ease-out forwards;
+}
+.toast-progresso.toast-fechando {
+    animation: fadeOutToast 0.5s ease-out forwards;
+}
+.toast-spinner {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 2px solid rgba(0,111,115,0.2);
+    border-top-color: #006f73;
+    flex-shrink: 0;
+    animation: girarToastProgresso 0.7s linear infinite;
+}
+@keyframes girarToastProgresso {
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   9. FILTROS E DROPDOWNS DO CABECALHO DA TABELA
+   ============================================================ */
+        
+/* Nome e icone de filtro na mesma linha. */
+.th-content {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+/* O elemento pai principal que segura o botao do menu */
+.multi-select-container {
+    position: relative;
+    width: auto;
+}
+
+/* Botao de filtro do cabecalho da tabela vira so o icone de funil, sem a caixa "Todos" - escopado em .th-content pra nao mexer no .multi-select-button solto fora de tabela (ex: filtros do Dashboard).
+   O rotulo (span#label-X) fica so escondido; o feedback de "tem filtro ativo" e a cor do funil (.multi-select-container.tem-filtro). */
+.th-content .multi-select-button {
+    background: none !important; border: none !important; padding: 3px;
+    border-radius: 4px; color: inherit !important;
+}
+.th-content .multi-select-button:hover { background: rgba(0, 0, 0, 0.06) !important; }
+.th-content .multi-select-button .th-filtro-label-oculto { display: none; }
+.th-content .multi-select-button svg { width: 13px; height: 13px; display: block; }
+/* Coluna filtrada: funil preenchido de branco (o teal antigo sumia no cabecalho, que tambem e teal). */
+.multi-select-container.tem-filtro .multi-select-button { color: #fff !important; }
+.multi-select-container.tem-filtro .multi-select-button svg { fill: currentColor; }
+
+/* Rotulo da coluna centralizado no th na pagina de Solicitacao (Cobertura): grade de 3 colunas com espacador do tamanho do icone de funil no lado oposto.
+   Escopado nesta pagina; as outras tabelas mantem o rotulo a esquerda. */
+body.pagina-solicitacao .th-content {
+    display: grid;
+    grid-template-columns: 22px 1fr 22px;
+    align-items: center;
+    gap: 0;
+}
+body.pagina-solicitacao .th-content > span {
+    grid-column: 2;
+    text-align: center;
+}
+body.pagina-solicitacao .th-content .multi-select-container {
+    grid-column: 3;
+    justify-self: end;
+}
+
+/* Cartao "Todos" fixado no cabecalho: cor solida (nao translucida), porque um th sticky pode repintar errado durante o scroll. */
+.multi-select-button {
+    background: #268588 !important;
+    border: 1px solid #4d9a9d !important;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #ffffff !important;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.multi-select-button:hover {
+    background: #4d9a9d !important;
+}
+
+/* Tamanho inicial/padrao do painel; largura/altura viram explicitas (via JS, ver .filtro-resize-handle) quando o usuario arrasta. */
+.multi-select-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 220px;
+    /* 440px: com muitos itens o painel abria alto demais e o botao Aplicar saia da tela. A lista (.items-list) tem scroll proprio, entao o teto so limita quantos itens aparecem sem rolar. */
+    max-height: 440px;
+    background: var(--dt-surface);
+    border: 1px solid var(--dt-border);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    z-index: 9999;
+    border-radius: 4px;
+}
+
+/* Classe injetada pelo script pra exibir o menu aberto */
+.multi-select-dropdown.show { 
+    display: flex; 
+    flex-direction: column; 
+} 
+
+/* Bloco cinza separador dos filtros de organizar de A-Z */
+/* flex-shrink:0: senao redimensionar o painel pra baixo do conteudo espremeria este bloco e sobreporia texto/botoes (so a lista, .items-list, tem overflow:auto). */
+.sort-section {
+    padding: 8px;
+    background: var(--dt-surface-2);
+    border-bottom: 1px solid var(--dt-border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* Padronizacao dos botoes estendidos de organizacao */
+.btn-sort {
+    background: var(--dt-surface);
+    border: 1px solid var(--dt-border);
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--dt-text);
+    transition: background 0.2s;
+    font-weight: bold;
+}
+
+/* Efeito de foco nos botoes de ordenar */
+.btn-sort:hover {
+    background: var(--dt-row-hover);
+    border-color: #006f73;
+}
+
+/* Engloba os marcadores redondos das cores RH */
+.color-sort-container { 
+    margin-top: 4px; 
+}
+
+/* Junta e espreme lado a lado as bolas coloridas */
+.color-swatch-wrapper { 
+    display: flex; 
+    gap: 8px; 
+    margin-top: 4px; 
+}
+
+/* Formato visual circular da bolinha de rh */
+.color-swatch { 
+    width: 18px; 
+    height: 18px; 
+    border-radius: 50%; 
+    cursor: pointer; 
+    border: 1px solid #aaa; 
+    transition: transform 0.2s; 
+}
+
+/* Destaca a bolinha escolhida inflando em zoom no foco */
+.color-swatch:hover { 
+    transform: scale(1.2); 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+}
+
+/* Barra base digitavel de buscas por nome isolado */
+.search-box-container {
+    padding: 8px;
+    background: var(--dt-surface-2);
+    border-bottom: 1px solid var(--dt-border);
+    flex-shrink: 0;
+}
+
+/* Formatacao text box limpa de procura */
+.filter-search-input {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid var(--dt-border);
+    background: var(--dt-surface);
+    color: var(--dt-text);
+    border-radius: 4px;
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+/* Rolagem da lista de tags. flex:1 de proposito: preenche o espaco extra quando o usuario aumenta o painel inteiro (ver .filtro-resize-handle). */
+.items-list {
+    overflow: auto;
+    flex: 1;
+    min-height: 80px;
+}
+
+/* Alca de redimensionar do PAINEL do filtro (ver ativarRedimensionamentoFiltro em filtro.js). Feita a mao, nao o "resize" nativo:
+   fica bem visivel e muda largura E altura juntas sem brigar com o layout flex do dropdown. */
+.filtro-resize-handle {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    z-index: 102;
+    background:
+        linear-gradient(135deg, transparent 0 45%, #006f73 45% 55%, transparent 55% 100%),
+        linear-gradient(135deg, transparent 0 70%, #006f73 70% 80%, transparent 80% 100%);
+}
+
+.filtro-resize-handle:hover {
+    background:
+        linear-gradient(135deg, transparent 0 45%, #00565a 45% 55%, transparent 55% 100%),
+        linear-gradient(135deg, transparent 0 70%, #00565a 70% 80%, transparent 80% 100%);
+}
+
+/* Renderizacao formatada de uma unica linha tag da lista */
+.multi-select-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--dt-text);
+}
+
+/* Foco em item do dropdown: mesmo tom de hover de linha de tabela (var(--dt-row-hover)). */
+.multi-select-item:hover {
+    background-color: var(--dt-row-hover);
+}
+
+/* Tooltip flutuante compartilhado (ex: codigo da funcao ao passar o mouse) */
+.tooltip-flutuante {
+    display: none;
+    position: fixed;
+    background: #1a1a1a;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    z-index: 100000;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Texto dentro do item dropdown */
+.multi-select-item label { 
+    display: flex; 
+    align-items: center; 
+    width: 100%; 
+    cursor: pointer; 
+}
+
+/* Caixa de selecao isolada do texto */
+.multi-select-item input {
+    margin-right: 10px;
+}
+
+/* ============================================================
+   FILTRO HIERARQUICO DE DATAS (Ano > Mes > Dia, estilo Excel)
+   ============================================================ */
+.filtro-data-grupo-linha {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--dt-text);
+}
+
+.filtro-data-grupo-linha:hover {
+    background-color: var(--dt-row-hover);
+}
+
+.filtro-data-grupo-linha label {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.filtro-data-grupo-linha input {
+    margin-right: 10px;
+}
+
+/* Seta clicavel que expande/colapsa os filhos do grupo, sem mexer na selecao */
+.filtro-data-seta {
+    display: inline-flex;
+    width: 14px;
+    flex: none;
+    justify-content: center;
+    margin-right: 4px;
+    color: #777;
+    font-size: 9px;
+    transition: transform 0.15s ease;
+}
+
+.filtro-data-seta.aberta {
+    transform: rotate(90deg);
+}
+
+/* Filhos ficam ocultos ate o usuario expandir o grupo */
+.filtro-data-filhos {
+    display: none;
+    flex-direction: column;
+}
+
+.filtro-data-filhos.expandido {
+    display: flex;
+}
+
+/* Indenta cada nivel: meses dentro de um ano, dias dentro de um mes */
+.filtro-data-filhos .filtro-data-grupo-linha {
+    padding-left: 24px;
+}
+
+.filtro-data-filhos .multi-select-item label {
+    padding-left: 24px;
+}
+
+.filtro-data-filhos .filtro-data-filhos .multi-select-item label {
+    padding-left: 38px;
+}
+
+/* Agrupador inferior final de controle rapido do menu */
+.dropdown-controls {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    background: var(--dt-surface-2);
+    border-bottom: 1px solid var(--dt-border);
+    flex-shrink: 0;
+}
+
+/* Botao "Aplicar": linha separada de Todos/Limpar (que so ajustam a selecao pendente) porque e ele que manda o filtro pra tabela; encostado na direita. */
+.dropdown-aplicar-container {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px;
+    background: var(--dt-surface-2);
+    border-bottom: 1px solid var(--dt-border);
+    flex-shrink: 0;
+}
+
+/* Botoes do filtro de coluna (Todos / Limpar / Aplicar) e do rodape do calendario (Remover / Aplicar): tonal com icone.
+   Aplicar = cheio; Todos = tonal verde; Limpar e Remover = tonal vermelho. O icone e a mascara em --icone (sem SVG no HTML).
+   Limpar = 2o .btn-mini do .dropdown-controls (todo painel tem Todos e Limpar, nessa ordem). */
+.btn-mini,
+.btn-aplicar-filtro,
+.btn-remover-tonal,
+.btn-cancelar-tonal {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    line-height: 1.2;
+    padding: 6px 12px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.btn-mini::before,
+.btn-aplicar-filtro::before,
+.btn-remover-tonal::before,
+.btn-cancelar-tonal::before {
+    content: "";
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask: var(--icone) center / contain no-repeat;
+    mask: var(--icone) center / contain no-repeat;
+}
+
+.btn-mini {
+    --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 7 17l-5-5M22 10l-7.5 7.5L13 16'/%3E%3C/svg%3E");
+    background: #e6f2f2;
+    color: #006f73;
+}
+.btn-mini:hover { background: #d3e8e8; }
+
+.dropdown-controls .btn-mini:last-child,
+.btn-cancelar-tonal {
+    --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E");
+}
+.btn-remover-tonal {
+    --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h16M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13'/%3E%3C/svg%3E");
+}
+.dropdown-controls .btn-mini:last-child,
+.btn-remover-tonal,
+.btn-cancelar-tonal {
+    background: #fdecea;
+    color: #c0392b;
+}
+.dropdown-controls .btn-mini:last-child:hover,
+.btn-remover-tonal:hover,
+.btn-cancelar-tonal:hover {
+    background: #f9d6d2;
+    color: #a93226;
+}
+
+.btn-aplicar-filtro {
+    --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+    background: #006f73;
+    border-color: #006f73;
+    color: #fff;
+}
+.btn-aplicar-filtro:hover {
+    background: #00565a;
+    border-color: #00565a;
+}
+
+/* Paineis pequenos de colaboradores/funcionarios.html: "Ja esta na sua tabela" (Adicionar colaborador) e aviso vencido sem
+   desligamento no Protheus. "Manter e aguardar" = tonal verde com relogio. */
+.painel-pequeno { display: flex; flex-direction: column; gap: 12px; }
+.painel-pequeno .modal-header { margin-bottom: 0; }
+.painel-pequeno p { margin: 0; font-size: 13px; line-height: 1.5; }
+.painel-pessoa,
+.painel-troca,
+.painel-opcao { font-size: 12px; background: #f4f4f4; border-radius: 6px; padding: 9px 10px; }
+.painel-troca { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; margin: 0; }
+.painel-troca dt { color: #666; text-transform: uppercase; font-size: 10.5px; padding-top: 2px; }
+.painel-troca dd { margin: 0; }
+.painel-opcao { display: flex; flex-direction: column; gap: 8px; }
+.painel-opcao .info-group { margin: 0; }
+.painel-botoes { display: flex; justify-content: flex-end; gap: 8px; }
+.painel-pequeno .btn-mini {
+    --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
+}
+.painel-pequeno .btn-mini,
+.painel-pequeno .btn-aplicar-filtro { align-self: flex-start; }
+
+
+/* ============================================================
+   10. MODAL PADRAO DE EDICAO DE REGISTRO (usado em CDV e VOLANTES)
+   ============================================================ */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    z-index: 10000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #fff;
+    border: 1px solid #e2e2e2;
+    width: 350px;
+    border-radius: 10px;
+    padding: 25px;
+    color: #2b2b2b;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.16);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ececec;
+    padding-bottom: 10px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #006f73;
+    font-size: 18px;
+    word-break: break-all;
+}
+
+/* Agrupa nome + matricula num bloco, senao o justify-content: space-between do .modal-header jogaria a matricula pro meio. */
+.modal-header-titulo {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+}
+
+.modal-matricula-badge {
+    flex-shrink: 0;
+    background-color: rgba(51, 145, 131, 0.18);
+    color: #006f73;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+/* Botao de designar cobertura direto na celula (coberturas/solicitacao.html, linhas abertas): so icone, contorno fino + sombra sutil. */
+.btn-designar-cobertura {
+    width: 60px;
+    height: 42px;
+    border-radius: 10px;
+    border: 1px solid #e2e8ea;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.btn-designar-cobertura svg {
+    width: 18px;
+    height: 18px;
+}
+.btn-designar-cobertura:hover {
+    border-color: #006f73;
+    color: #006f73;
+    box-shadow: 0 2px 6px rgba(0, 111, 115, 0.18);
+}
+
+/* "Definir Fim" (Preposto, coluna FIM de vaga de Desligamento aberta, ver renderizarLinhas): mesmo botao de designar cobertura, menor, pois fica numa coluna estreita. */
+.btn-designar-cobertura.btn-definir-fim {
+    width: 32px;
+    height: 28px;
+    border-radius: 7px;
+}
+.btn-designar-cobertura.btn-definir-fim svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Observacao do Preposto (Nova Solicitacao, coberturas/solicitacao.html): caixa "Nota do Preposto" logo abaixo do titulo do painel
+   de cobertura (#designar-cob-observacao; margem negativa encosta no #designar-cob-info, que ja tem margem embaixo), icone ao lado
+   do MOTIVO nas listas e contador "N/300" embaixo do campo. Amarelo de anotacao, separado do verde da marca. O texto tem altura
+   maxima com rolagem: notas de 2 solicitacoes juntas empurravam o painel para fora da tela num notebook. */
+.observacao-preposto {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: #fff8e6; border: 1px solid #f0d48a; border-radius: 7px;
+    padding: 10px 12px; margin: -18px 0 0;
+}
+.observacao-preposto svg { flex-shrink: 0; color: #8a5a00; margin-top: 1px; }
+.observacao-preposto-corpo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.observacao-preposto-rotulo { font-size: 10.5px; font-weight: 700; color: #8a5a00; text-transform: uppercase; letter-spacing: 0.04em; }
+.observacao-preposto-texto {
+    margin: 0; font-size: 13px; line-height: 1.45; color: #5c4300; white-space: pre-line; overflow-wrap: anywhere;
+    max-height: 5.8em; overflow-y: auto; /* 4 linhas: cabe uma nota de 300; notas juntas rolam */
+}
+.icone-observacao-solic { display: inline-flex; vertical-align: middle; margin-left: 6px; color: #8a5a00; cursor: help; }
+.icone-observacao-solic svg { width: 15px; height: 15px; }
+/* textarea nao herda a fonte da pagina (o navegador usa monoespacada): a Observacao fica na mesma letra dos outros campos. */
+.info-group textarea.campo-observacao { font-family: inherit; font-size: 13px; line-height: 1.4; }
+.contador-observacao { font-size: 11px; color: #767676; text-align: right; font-variant-numeric: tabular-nums; }
+.contador-observacao.excedido { color: #e74c3c; font-weight: 600; }
+
+/* Quem abriu ("Aberta por", #designar-cob-origem) logo abaixo do titulo do painel de cobertura, antes da nota: mesma margem negativa
+   da caixa da nota pra encostar no #designar-cob-info. */
+.origem-solicitacao { display: flex; gap: 6px; align-items: flex-start; margin: -18px 0 0; font-size: 12px; line-height: 1.45; color: #6b6b6b; }
+.origem-solicitacao svg { flex-shrink: 0; color: #9a9a9a; margin-top: 2px; }
+.origem-solicitacao b { font-weight: 600; color: #2b2b2b; }
+/* Ate 3 linhas visiveis: falta aberta dia a dia vira uma linha por dia e empurrava o painel pra fora da tela; o resto rola. */
+.origem-solicitacao-linhas { min-width: 0; max-height: 4.4em; overflow-y: auto; }
+
+/* Modal de designar cobertura (calendario com "pincel" por pessoa, ver abrirModalDesignarCobertura em coberturas/solicitacao.html): reusa .gestor-cobertura-calendario-*,
+   mas aqui os dias sao clicaveis e a cor de cada dia pintado e dinamica por pessoa (style inline no JS). Layout em 2 colunas: segmentos + calendario lado a lado. */
+.designar-cob-corpo { display: flex; gap: 22px; }
+.designar-cob-col-segmentos { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.designar-cob-col-calendario { flex: 1.05; min-width: 0; }
+.designar-cob-titulo-coluna {
+    font-size: 10px; color: #9a9a9a; text-transform: uppercase; letter-spacing: 0.04em;
+    display: block; margin-bottom: 7px;
+}
+
+.cob-pincel-avatar {
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9.5px; font-weight: 700; color: #fff;
+}
+
+.btn-designar-cob-add {
+    width: 100%; background: transparent; border: 1px solid #006f73; color: #006f73;
+    border-radius: 5px; padding: 9px; font-size: 11.5px; font-weight: 700; cursor: pointer;
+    margin-top: 6px; transition: background-color 0.15s, color 0.15s;
+}
+.btn-designar-cob-add:hover { background: #006f73; color: #fff; }
+
+/* Caixa de busca "Digite a matricula ou o nome..." (designar cobertura): mesmo visual do input de busca do modal "Adicionar Colaborador" (colaboradores/funcionarios.html, ".info-group input" abaixo). */
+#designar-cob-busca {
+    width: 100%;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    color: #2b2b2b;
+    padding: 10px;
+    border-radius: 5px;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.3s;
+}
+#designar-cob-busca:focus { border-color: #006f73; }
+
+.designar-cob-cal-cabecalho {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 4px 12px; margin-bottom: 7px;
+}
+.designar-cob-cal-cabecalho .designar-cob-titulo-coluna { margin-bottom: 0; }
+
+.designar-cob-legenda { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cob-leg-item {
+    display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: #6b6b6b;
+    text-transform: uppercase; letter-spacing: 0.02em; cursor: pointer;
+}
+.cob-leg-cor { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+
+.designar-cob-cal-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.designar-cob-cal-topo .gestor-cobertura-calendario-titulo { margin-bottom: 0; flex: 1; }
+.designar-cob-cal-nav { background: none; border: none; color: #9a9a9a; font-size: 16px; cursor: pointer; padding: 2px 8px; line-height: 1; }
+.designar-cob-cal-nav:hover { color: #2b2b2b; }
+
+.gestor-cobertura-calendario-dia.clicavel { cursor: pointer; }
+.gestor-cobertura-calendario-dia.clicavel:hover { outline: 1.5px solid #006f73; outline-offset: -1.5px; }
+.gestor-cobertura-calendario-dia.fora-periodo { color: #d5d5d5; }
+.gestor-cobertura-calendario-dia.pendente-pintura { border: 1.5px dashed #c2c2c2; color: #9a9a9a; }
+/* Dia que o volante escolhido (pincel atual) ja cobre em OUTRA solicitacao (diasConflitantesCobertura): cinza de "fora do periodo" + cursor proibido, sem onclick. */
+.gestor-cobertura-calendario-dia.indisponivel { color: #d5d5d5; cursor: not-allowed; }
+/* Dia clicado 1o (aguardando o 2o clique fechar o intervalo, clicarDiaCoberturaCalendario). Contorno escuro solido pra nao confundir com "hoje" (teal) nem com dia ja pintado. */
+.gestor-cobertura-calendario-dia.range-inicio { box-shadow: 0 0 0 2px #2b2b2b inset; }
+
+.designar-cob-segmentos { display: flex; flex-direction: column; gap: 6px; }
+.cob-seg {
+    display: flex; align-items: center; gap: 9px; background: #fafafa; border: 1px solid #ececec;
+    border-radius: 7px; padding: 8px 10px; font-size: 12px; color: #2b2b2b; cursor: pointer;
+}
+.cob-seg:hover { background: #f0f0f0; }
+.cob-seg b { font-weight: 700; }
+.cob-seg-dias { color: #9a9a9a; margin-left: auto; font-variant-numeric: tabular-nums; font-size: 11px; white-space: nowrap; }
+.cob-seg-pendente { border: 1.5px dashed #c2c2c2; background: transparent; color: #9a9a9a; cursor: pointer; }
+.cob-seg-pendente:hover { background: transparent; border-color: #e74c3c; color: #e74c3c; }
+.cob-seg-pendente:hover .cob-seg-dias { color: #e74c3c; }
+.cob-seg-pendente.ativo { border-color: #e74c3c; color: #e74c3c; }
+.cob-seg-pendente.ativo .cob-seg-dias { color: #e74c3c; }
+.cob-seg-x {
+    width: 20px; height: 20px; border-radius: 5px; background: #ececec; color: #6b6b6b;
+    display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; flex-shrink: 0;
+}
+
+.btn-fechar {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.btn-fechar:hover {
+    color: #5b5375;
+}
+
+/* Icone de copiar ao lado do nome no cabecalho do modal do colaborador (copiarDadosVolanteModal, cdv.html); discreto pra nao competir com nome/matricula. */
+.btn-copiar-dados-colab {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 15px;
+    cursor: pointer;
+    padding: 2px 4px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.15s, transform 0.15s;
+}
+
+.btn-copiar-dados-colab:hover {
+    color: #006f73;
+    transform: scale(1.1);
+}
+
+/* Modal do colaborador (CDV) deitado com abas (Dados & Contato / Situacao / Cobertura): so uma visivel por vez, pra caber sem rolagem (a coluna unica de 350px do .modal-content base estourava a altura da tela). */
+.modal-content-colab {
+    width: 620px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.modal-abas-colab {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid #ececec;
+    margin: -5px 0 5px;
+}
+
+.modal-aba-colab {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 10px 14px 9px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-family: inherit;
+}
+
+.modal-aba-colab:hover {
+    color: #4a4a4a;
+}
+
+.modal-aba-colab-ativa,
+.modal-aba-colab-ativa:hover {
+    color: #2b2b2b;
+    border-bottom-color: #006f73;
+}
+
+.modal-painel-colab {
+    display: none;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.modal-painel-colab-ativo {
+    display: flex;
+}
+
+.info-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.info-group label {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
+}
+
+/* So o filho DIRETO ("caixinha" so-leitura tipo CPF): "span" sem o ">" pegava spans aninhados (texto do botao de Motivo, caixas de Data da Nova Solicitacao) que ja tem caixa no pai, gerando caixa dentro de caixa. */
+.info-group > span {
+    font-size: 13px;
+    background: #fafafa;
+    border: 1px solid #d9d9d9;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.info-group input,
+.info-group textarea,
+.info-group select {
+    width: 100%;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    color: #2b2b2b;
+    padding: 10px;
+    border-radius: 5px;
+    resize: none;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.3s;
+}
+
+.info-group input:focus,
+.info-group textarea:focus,
+.info-group select:focus {
+    border-color: #006f73;
+}
+
+/* <input type="date"> nativo (Nova Solicitacao): o calendario do navegador respeita color-scheme, senao abre um popup escuro destoando do modal claro. */
+.info-group input[type="date"] { color-scheme: light; }
+
+.info-group textarea {
+    height: 80px;
+}
+
+/* Mesmo visual "caixinha cinza" do CPF (.info-group span, so-leitura): com borda transparente + fundo branco sumiria sobre o fundo do modal ate clicarem no lapis. */
+.info-group input:disabled,
+.info-group textarea:disabled,
+.info-group input[readonly] {
+    background: #fafafa;
+    border: 1px solid #d9d9d9;
+    color: #2b2b2b;
+}
+
+.input-group-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+/* DATA - INICIO / DATA - FIM (Nova Solicitacao): flex:1 divide a linha igualmente entre os 2 campos; min-width:0 evita o input empurrar o flex item alem da metade.
+   Escopado so no grupo de datas; outras telas com .input-group-row nao mudam. */
+#nova-solic-datas-grupo .info-group {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Dropdown customizado do campo Motivo (Nova Solicitacao, coberturas/solicitacao.html): substitui o <select> nativo, que fica escondido como fonte de verdade do valor.
+   Mesmo visual de #nova-solic-busca (.info-group input); painel/item reaproveitam o de .add-resultados-busca. */
+.dropdown-motivo { position: relative; }
+.dropdown-motivo-trigger {
+    /* appearance:none tira o respiro vertical extra que o Chrome aplica a todo <button>; com box-sizing:border-box e line-height:normal o botao mede a mesma altura de #nova-solic-busca e dos inputs de data. */
+    appearance: none;
+    -webkit-appearance: none;
+    box-sizing: border-box;
+    line-height: normal;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    /* appearance:none sozinho nao bastou (o <button> ficava ~20px mais alto); height fixo iguala os campos vizinhos (39px). */
+    height: 39px;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 5px;
+    padding: 0 10px;
+    color: #2b2b2b;
+    font-size: 13px;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+.dropdown-motivo-trigger:hover,
+.dropdown-motivo.aberto .dropdown-motivo-trigger {
+    border-color: #006f73;
+}
+.dropdown-motivo-trigger svg {
+    width: 14px;
+    height: 14px;
+    color: #9a9a9a;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+}
+.dropdown-motivo.aberto .dropdown-motivo-trigger svg {
+    transform: rotate(180deg);
+}
+.dropdown-motivo-painel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    overflow: hidden;
+    z-index: 20;
+    box-sizing: border-box;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+}
+.dropdown-motivo.aberto .dropdown-motivo-painel {
+    display: block;
+}
+.dropdown-motivo-item {
+    padding: 10px 12px;
+    font-size: 12.5px;
+    color: #4a4a4a;
+    cursor: pointer;
+}
+.dropdown-motivo-item:hover {
+    background: #fafafa;
+}
+.dropdown-motivo-item.selecionado {
+    background: rgba(0, 111, 115, 0.1);
+    color: #006f73;
+    font-weight: 600;
+}
+/* Item em foco pelo teclado (tecladoDropdownMotivo, filtro.js) */
+.dropdown-motivo-item.foco {
+    background: #e3efef;
+    outline: 2px solid #006f73;
+    outline-offset: -2px;
+}
+/* Dia de hoje no calendario customizado (Nova Solicitacao) */
+.calendario-dia-hoje {
+    box-shadow: inset 0 0 0 1px #006f73;
+    font-weight: 700;
+}
+
+/* Caixa clicavel que abre o calendario customizado (Nova Solicitacao, #calendario-popup-solic): mesmo visual/altura de .info-group input (39px), mas e uma <div> clicavel, ja que o calendario substitui o seletor nativo. */
+.data-display-solic {
+    width: 100%;
+    height: 39px;
+    box-sizing: border-box;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 5px;
+    padding: 0 10px;
+    color: #9a9a9a;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    transition: border-color 0.3s;
+}
+.data-display-solic:hover {
+    border-color: #006f73;
+}
+.data-display-solic.preenchido {
+    color: #2b2b2b;
+}
+.data-display-solic svg {
+    flex-shrink: 0;
+}
+
+.btn-lapis-mini {
+    background-color: #006f73;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    height: 39px;
+    min-width: 40px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.btn-lapis-mini:hover {
+    background-color: #5b5375 !important;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.25);
+    transform: translateY(-1px);
+}
+
+.btn-acao-modal {
+    background-color: #006f73;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    display: block;
+    text-align: center;
+    margin-top: 5px;
+    box-sizing: border-box;
+}
+
+.btn-acao-modal:hover {
+    background-color: #5b5375 !important;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.25);
+    transform: translateY(-1px);
+}
+
+/* Botao "Remover colaborador" da aba Situacao (colaboradores.html): fica no espaco vazio a direita dos checkboxes, so pra colaborador MANUAL sem centro de custo volante (#linha-remover-colaborador no HTML). */
+.btn-remover-colab {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 5px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-remover-colab:hover {
+    background-color: #c0392b !important;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.25);
+    transform: translateY(-1px);
+}
+
+.erro-validacao {
+    color: #e74c3c;
+    font-size: 11px;
+    margin-top: 2px;
+    display: none;
+    font-weight: bold;
+}
+
+.input-erro {
+    border-color: #e74c3c !important;
+    background-color: rgba(231, 76, 60, 0.1) !important;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    color: #4a4a4a;
+    font-size: 13px;
+}
+
+.checkbox-group input {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* Busca de colaborador direto no Protheus (modal Adicionar Colaborador do CDV; buscarColaboradorProtheus/selecionarColaboradorBusca em colaboradores/cdv.html). */
+.add-resultados-busca {
+    display: none;
+    flex-direction: column;
+    gap: 1px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    margin-top: 6px;
+}
+.add-resultados-busca.mostrando { display: flex; }
+
+.add-resultado-item {
+    padding: 8px 10px;
+    font-size: 12.5px;
+    color: #2b2b2b;
+    cursor: pointer;
+    border-bottom: 1px solid #ececec;
+}
+.add-resultado-item:last-child { border-bottom: none; }
+.add-resultado-item:hover { background: #fafafa; }
+.add-resultado-item.add-resultado-vazio { cursor: default; color: #9a9a9a; }
+.add-resultado-item.add-resultado-vazio:hover { background: none; }
+
+.add-resultado-detalhe {
+    font-size: 11px;
+    color: #9a9a9a;
+    margin-top: 2px;
+}
+
+/* Confirmacao do colaborador escolhido na busca - fica visivel ate o
+   formulario ser salvo ou fechado. */
+.add-colaborador-selecionado {
+    display: none;
+    padding: 10px 12px;
+    background: rgba(46, 204, 113, 0.1);
+    border: 1px solid #2ecc71;
+    border-radius: 6px;
+}
+.add-colaborador-selecionado.mostrando { display: block; }
+
+.add-resumo-nome {
+    font-weight: bold;
+    color: #2b2b2b;
+    font-size: 13px;
+}
+
+/* ============================================================
+   12. CDV - CORES AUTOMATICAS DE LINHA (FILTROS DE RH)
+   ============================================================ */
+#table-body tr.linha-aviso,
+#table-body tr.linha-aviso td {
+    background-color: #d4b8e3 !important;
+    color: #000 !important;
+}
+#table-body tr.linha-aviso:hover,
+#table-body tr.linha-aviso:hover td {
+    background-color: #c9a7db !important;
+}
+
+#table-body tr.linha-transferencia,
+#table-body tr.linha-transferencia td {
+    background-color: #eaf4fc !important;
+    color: #000 !important;
+}
+#table-body tr.linha-transferencia:hover,
+#table-body tr.linha-transferencia:hover td {
+    background-color: #d7ecfa !important;
+}
+
+#table-body tr.linha-experiencia,
+#table-body tr.linha-experiencia td {
+    background-color: #ffcccc !important;
+    color: #000 !important;
+}
+#table-body tr.linha-experiencia:hover,
+#table-body tr.linha-experiencia:hover td {
+    background-color: #ff9999 !important;
+}
+
+/* Botao redondo de adicionar colaborador manualmente */
+.btn-adicionar-novo {
+    background-color: #006f73;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    width: 35px;
+    height: 35px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+.btn-adicionar-novo:hover {
+    background-color: #5b5375;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 10px rgba(0,0,0,0.3);
+}
+
+/* ============================================================
+   13. CDV - CALENDARIO CUSTOMIZADO (PREVISTO DESLIGAMENTO)
+   ============================================================ */
+/* Os estados coloridos de dia (selecionado/capacitacao/cobertura, abaixo) tem texto branco proprio; so a base (dia comum, cabecalho, dias fora do mes) depende do tema. */
+.calendario-popup {
+    display: none;
+    position: fixed;
+    z-index: 10001;
+    width: 300px;
+    background: #fff;
+    border: 1px solid #e2e2e2;
+    border-radius: 24px;
+    padding: 20px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.18);
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.calendario-popup.show {
+    display: block;
+}
+
+.calendario-glow {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 110px;
+    height: 5px;
+    border-radius: 0 0 3px 3px;
+    background: #006f73;
+    box-shadow: 0 0 20px 6px rgba(51,145,131,0.35);
+    pointer-events: none;
+}
+
+.calendario-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.calendario-nav {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid #e2e2e2;
+    background: #fafafa;
+    color: #6b6b6b;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.calendario-nav:hover {
+    background: rgba(0,111,115,0.1);
+    color: #006f73;
+}
+
+.calendario-titulo {
+    position: relative;
+    color: #2b2b2b;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.calendario-semana {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    color: #b5b5b5;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
+.calendario-grade {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    row-gap: 8px;
+}
+
+.calendario-dia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    color: #2b2b2b;
+    font-size: 14px;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.calendario-dia:hover:not(.calendario-dia-fora):not(.calendario-dia-desabilitado):not(.gestor-seg-dia-coberto):not(.gestor-seg-dia-sem-cobertura) {
+    background: rgba(0,111,115,0.1);
+}
+
+/* Preview do hover em calendario de INTERVALO (.calendario-modo-range): ja quadrado, como a selecao final, em vez do border-radius:50% base. Calendario de DATA UNICA nao tem essa classe e segue circular. */
+.calendario-modo-range .calendario-dia:hover:not(.calendario-dia-fora):not(.calendario-dia-desabilitado) {
+    border-radius: 4px;
+}
+
+.calendario-dia-fora {
+    color: #d5d5d5;
+    cursor: default;
+}
+
+.calendario-dia-desabilitado {
+    color: #e2e2e2;
+    cursor: not-allowed;
+}
+
+.calendario-dia-selecionado {
+    background: radial-gradient(circle, #006f73 0%, #00565a 100%);
+    box-shadow: 0 0 18px rgba(51,145,131,0.7);
+    font-weight: bold;
+}
+
+/* Faixa que conecta visualmente o inicio e o fim do intervalo selecionado (FERIAS) */
+.calendario-dia-no-intervalo {
+    background: rgba(51,145,131,0.3);
+    border-radius: 4px;
+}
+
+/* Extremidades do intervalo (inicio/fim) quadradas como os dias do meio. Modificador usado JUNTO com .calendario-dia-selecionado (calendario-dia-extremidade); dia UNICO fora de range segue circular.
+   Preenchimento solido e glow de 6px (o radial/glow de 18px faria o quadrado parecer circulo). */
+.calendario-dia-selecionado.calendario-dia-extremidade {
+    border-radius: 4px;
+    background: #006f73;
+    box-shadow: 0 0 6px rgba(0,111,115,0.6);
+}
+
+/* Dias com capacitacao ja marcada (CDV) - clicaveis pra desmarcar, ver
+   confirmarRemoverCapacitacao. Laranja pra ficar visualmente distinto tanto
+   do verde de selecao/intervalo em andamento quanto do cinza de desabilitado. */
+.calendario-dia-capacitacao {
+    background: radial-gradient(circle, #ff831d 0%, #cc6917 100%);
+    box-shadow: 0 0 18px rgba(230,126,34,0.6);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Dias com cobertura ja escalada pro volante (CDV): vence visualmente sobre capacitacao (laranja) e base (verde). Read-only aqui (cobertura e gerenciada na aba Solicitacoes);
+   vermelho igual ao .designado-cobertura do calendario-resumo. */
+.calendario-dia-cobertura {
+    background: radial-gradient(circle, #e74c3c 0%, #c0392b 100%);
+    box-shadow: 0 0 18px rgba(231,76,60,0.55);
+    font-weight: bold;
+    cursor: default;
+}
+
+/* Dias ja em base (calendario da Nova Base) - verde, igual ao painel
+   (.designado-base). Continuam selecionaveis: a base nova substitui. */
+.calendario-dia-base {
+    background: radial-gradient(circle, #2ecc71 0%, #27ae60 100%);
+    box-shadow: 0 0 18px rgba(46,204,113,0.55);
+    color: #0c2415;
+    font-weight: bold;
+    cursor: pointer;
+}
+/* Periodo sendo selecionado por cima de um dia ja pintado (base/cobertura):
+   o contorno mostra a selecao sem esconder a cor do dia. */
+.calendario-dia-base.calendario-dia-no-intervalo,
+.calendario-dia-cobertura.calendario-dia-no-intervalo { outline: 2px solid #006f73; outline-offset: -2px; }
+.calendario-dia-base.calendario-dia-extremidade,
+.calendario-dia-cobertura.calendario-dia-extremidade { outline: 3px solid #006f73; outline-offset: -3px; }
+
+/* Calendario de segmentos de cobertura (coberturas/solicitacoes-gestor.html) -
+   dia ainda sem decisao nesta solicitacao, clicavel pra virar inicio/fim do
+   novo segmento. So a borda (nao o fundo) pra nao brigar visualmente com o
+   preenchimento solido usado pela selecao em andamento
+   (.calendario-dia-selecionado/.calendario-dia-no-intervalo, acima). */
+.gestor-seg-dia-pendente {
+    border: 2px dashed #ff831d;
+    color: #ff831d;
+    font-weight: bold;
+}
+
+/* Dia ja coberto por outro segmento (designado) desta mesma solicitacao -
+   so informativo, nao clicavel (o servidor tambem rejeitaria, ver
+   validarSegmento em cobertura-gestor.php). */
+.gestor-seg-dia-coberto {
+    background: radial-gradient(circle, #006f73 0%, #00565a 100%);
+    color: #fff;
+    font-weight: bold;
+    cursor: not-allowed;
+}
+
+/* Dia ja marcado sem cobertura por outro segmento - mesma logica acima. */
+.gestor-seg-dia-sem-cobertura {
+    background: #6b6b76;
+    color: #fff;
+    font-weight: bold;
+    cursor: not-allowed;
+}
+
+/* Rodape do calendario de intervalo: "Aplicar" (base e capacitacao) e "Remover" (so na base) */
+.calendario-footer {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+/* ============================================================
+   14. SOLICITACAO - TABELA E GAVETA LATERAL
+   ============================================================ */
+/* Linha destacada por duplicidade de Matricula + Data */
+#table-body tr.linha-duplicada,
+#table-body tr.linha-duplicada td {
+    background-color: #edebd7 !important;
+    color: #000 !important;
+}
+#table-body tr.linha-duplicada:hover,
+#table-body tr.linha-duplicada:hover td {
+    background-color: #d9d8c5 !important;
+}
+
+/* Equipe + Volantes lado a lado (so Preposto, body.preposto-equipe-view em funcionarios.html); RH/Gestor veem #container-dados normal (largura total, 8 colunas).
+   As duas tabelas usam o mesmo cabecalho travado do RH (.tabela-cabecalho-fixo/.tabela-corpo-rolavel + table-layout:fixed em %, ver secao 4), cada uma com suas larguras de 5 colunas
+   (nth-child abaixo, mais especifico que o de 8). Largura fixa evita cabecalho pequeno que cresce quando os dados chegam. */
+/* Botao de adicionar colaborador some pro Preposto (nao cadastra manual) e o contador vira 2: equipe a esquerda e volantes/intermitentes a direita (#contador-volantes-preposto). */
+body.preposto-equipe-view #btn-adicionar-colaborador {
+    display: none;
+}
+body.preposto-equipe-view #toolbar-flutuante-equipe {
+    margin-left: 0;
+}
+/* No RH o pill tem 42px por causa do botao "+" (32px); sem ele (Preposto, #btn-adicionar-colaborador) encolheria pra 25px. min-height iguala os contadores. */
+body.preposto-equipe-view .toolbar-flutuante {
+    min-height: 32px;
+}
+
+body.preposto-equipe-view #wrap-equipe-volantes {
+    display: flex;
+    align-items: flex-start;
+    gap: 22px;
+    flex-wrap: wrap;
+}
+/* Equipe e Volantes do mesmo tamanho: flex-grow/shrink e basis iguais. Dentro de item flex a largura ja e definitiva antes das %, entao table-layout:fixed funciona sem largura fixa em px. */
+body.preposto-equipe-view #container-dados,
+body.preposto-equipe-view #container-volantes-preposto {
+    flex: 1 1 360px;
+    max-width: 100%;
+}
+/* Proporcoes fixas das 5 colunas da Equipe (CENTRO DE CUSTO/MATRICULA/NOME/FUNCAO/MOTIVO, colunasOriginais em funcionarios.html);
+   mais especifico que o ".tabela-cabecalho-fixo th:nth-child" generico (8 colunas do RH). */
+body.preposto-equipe-view #container-dados .tabela-cabecalho-fixo th:nth-child(1),
+body.preposto-equipe-view #container-dados .tabela-corpo-rolavel td:nth-child(1) { width: 24%; } /* CENTRO DE CUSTO */
+body.preposto-equipe-view #container-dados .tabela-cabecalho-fixo th:nth-child(2),
+body.preposto-equipe-view #container-dados .tabela-corpo-rolavel td:nth-child(2) { width: 10%; } /* MATRICULA */
+body.preposto-equipe-view #container-dados .tabela-cabecalho-fixo th:nth-child(3),
+body.preposto-equipe-view #container-dados .tabela-corpo-rolavel td:nth-child(3) { width: 26%; } /* NOME */
+body.preposto-equipe-view #container-dados .tabela-cabecalho-fixo th:nth-child(4),
+body.preposto-equipe-view #container-dados .tabela-corpo-rolavel td:nth-child(4) { width: 22%; } /* FUNCAO */
+/* MOTIVO 18% ("Afastamento" cortava), tirado de CENTRO DE CUSTO, que ja truncava com reticencias. */
+body.preposto-equipe-view #container-dados .tabela-cabecalho-fixo th:nth-child(5),
+body.preposto-equipe-view #container-dados .tabela-corpo-rolavel td:nth-child(5) { width: 18%; } /* MOTIVO */
+body.preposto-equipe-view #minha-tabela tbody tr {
+    cursor: pointer;
+}
+
+/* Coluna MOTIVO (Equipe e Volantes, Preposto) e um chip de 5 valores fixos (ver chipMotivoPreposto): text-overflow:clip evita "..." depois do chip em telas muito estreitas. */
+body.preposto-equipe-view #container-dados .tabela-corpo-rolavel td:nth-child(5),
+body.preposto-equipe-view #container-volantes-preposto .tabela-corpo-rolavel td:nth-child(5) {
+    text-overflow: clip;
+}
+
+/* Volantes (Preposto): mesmo cabecalho travado da Equipe/RH (ver comentario no topo desta secao); bordas e zebra vem de .tabela-refinada, aqui so cor/tamanho. */
+body.preposto-equipe-view #container-volantes-preposto .tabela-cabecalho-fixo th:nth-child(1),
+body.preposto-equipe-view #container-volantes-preposto .tabela-corpo-rolavel td:nth-child(1) { width: 26%; } /* CENTRO DE CUSTO */
+body.preposto-equipe-view #container-volantes-preposto .tabela-cabecalho-fixo th:nth-child(2),
+body.preposto-equipe-view #container-volantes-preposto .tabela-corpo-rolavel td:nth-child(2) { width: 10%; } /* MATRICULA */
+body.preposto-equipe-view #container-volantes-preposto .tabela-cabecalho-fixo th:nth-child(3),
+body.preposto-equipe-view #container-volantes-preposto .tabela-corpo-rolavel td:nth-child(3) { width: 24%; } /* NOME */
+body.preposto-equipe-view #container-volantes-preposto .tabela-cabecalho-fixo th:nth-child(4),
+body.preposto-equipe-view #container-volantes-preposto .tabela-corpo-rolavel td:nth-child(4) { width: 20%; } /* FUNCAO */
+/* MOTIVO 20%; CENTRO DE CUSTO 26%, que e quem mais precisa de largura nesta tabela. */
+body.preposto-equipe-view #container-volantes-preposto .tabela-cabecalho-fixo th:nth-child(5),
+body.preposto-equipe-view #container-volantes-preposto .tabela-corpo-rolavel td:nth-child(5) { width: 20%; } /* MOTIVO */
+.tabela-volantes-preposto thead th {
+    background: #5b5375;
+    color: #fff;
+    /* line-height:19px fecha o cabecalho em 39px como no RH, onde o icone de filtro (19px) em .th-content engorda a celula; aqui nao ha filtro nas colunas. */
+    line-height: 19px;
+    text-transform: uppercase;
+    text-align: left;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tabela-volantes-preposto tbody td {
+    color: #1f2933;
+    /* Esquerda em toda coluna (inclusive MOTIVO): renderizarTabelaVolantes nao usa .alinhado-esquerda e herdaria o "td { text-align:center }" generico. */
+    text-align: left;
+}
+.tabela-volantes-preposto tbody tr:nth-child(even) {
+    background: #fafbfb;
+}
+.tabela-volantes-preposto tbody tr {
+    cursor: pointer;
+}
+.tabela-volantes-preposto tbody tr:hover {
+    background: #eef2f3;
+}
+
+/* Chip colorido da coluna MOTIVO (Equipe e Volantes, Preposto), mesmas cores da legenda (.legenda-preposto-colaboradores); cor de fundo/texto vem inline no JS (chipMotivoPreposto), aqui so o formato. */
+.chip-motivo-preposto {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 7px; border-radius: 20px; font-size: 10.5px; font-weight: 700;
+    /* max-width+min-width:0: sem isso o chip nao encolhe na celula (flex nao aceita text-overflow no proprio container) e o corte acontece no <td>, sem reticencias.
+       calc(100% - 16px): o <td> (#table-body td, text-align:center) nao tem padding, entao uma folga de 8px de cada lado evita o chip encostar nas bordas e garante que o texto
+       (.chip-motivo-preposto-texto) trunque com "..." antes do <td> cortar (sub-pixel em zoom do navegador). Fonte/padding reduzidos: chip mais compacto cabe mais texto. */
+    max-width: calc(100% - 16px);
+    min-width: 0;
+}
+.chip-motivo-preposto:before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+    flex-shrink: 0; /* o pontinho nunca encolhe/some, so o texto trunca */
+}
+/* O texto do chip fica num span proprio (chipMotivoPreposto/chipComTexto) que corta com reticencias, mantendo a borda arredondada e o pontinho inteiros. */
+.chip-motivo-preposto-texto {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+/* Telinhas de detalhe (colaborador/volante, Preposto), ver modal-info-colab-overlay/modal-info-vol-overlay em funcionarios.html. */
+.info-preposto-sub { font-size: 12px; color: #9a9a9a; margin: -8px 0 14px; }
+.info-preposto-linha { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; padding: 8px 0; border-bottom: 1px solid #ececec; }
+.info-preposto-linha span:first-child { color: #9a9a9a; }
+.info-preposto-bloco { background: #fafafa; border: 1px solid #ececec; border-radius: 8px; padding: 12px; margin-top: 14px; }
+/* Telinha do colaborador: dados cadastrais e situacao de hoje em cartoes separados. Mesmo fundo/raio de .info-preposto-bloco, com margin-bottom entre os cartoes. */
+.info-preposto-secao { background: #fafafa; border: 1px solid #ececec; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+.info-preposto-secao .info-preposto-linha { border-bottom: 1px solid #e2e2e2; }
+.info-preposto-rotulo { font-size: 9.5px; color: #9a9a9a; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 7px; }
+.info-preposto-pessoa { display: flex; align-items: center; gap: 9px; }
+.info-preposto-avatar {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10.5px; font-weight: 700; color: #fff; background: #5b5375;
+}
+.info-preposto-pessoa-nome { font-size: 12.5px; font-weight: 700; color: #2b2b2b; }
+.info-preposto-pessoa-matricula { font-size: 10.5px; color: #9a9a9a; }
+.info-preposto-periodo { display: flex; gap: 18px; margin-top: 10px; font-size: 11.5px; color: #2b2b2b; }
+.info-preposto-periodo span { display: block; color: #9a9a9a; font-size: 9.5px; text-transform: uppercase; margin-bottom: 2px; }
+.info-preposto-vazio { font-size: 12.5px; color: #9a9a9a; margin-top: 14px; }
+.info-preposto-quem { font-size: 12.5px; color: #2b2b2b; }
+.info-preposto-lista-outros { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.info-preposto-outro-item { display: flex; align-items: center; gap: 8px; background: #fafafa; border: 1px solid #ececec; border-radius: 7px; padding: 7px 10px; font-size: 11.5px; color: #2b2b2b; }
+.info-preposto-outro-item .info-preposto-avatar { width: 20px; height: 20px; font-size: 8.5px; }
+.info-preposto-outro-item .info { flex: 1; min-width: 0; }
+.info-preposto-outro-item .nome { font-weight: 600; }
+.info-preposto-outro-item .periodo { color: #9a9a9a; font-size: 10px; }
+.info-preposto-ver-todas { text-align: center; font-size: 10.5px; color: #006f73; font-weight: 700; padding-top: 4px; }
+
+/* Cabecalho de 2 linhas (grupo PERIODO com INICIO/FIM): reduz so o padding vertical (o padrao ficava quase o dobro das tabelas de 1 linha). Escopado em body.pagina-solicitacao. */
+body.pagina-solicitacao .tabela-cabecalho-fixo th {
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+
+/* --- Modal gigante da ferramenta de Notificacao de Cobertura (compartilhado, injetado por backend/filtro.js, aberto pelo item "Notificacao" do menu COBERTURAS) --- */
+.modal-notificacao-cobertura {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); z-index: 10000; justify-content: center; align-items: center;
+}
+/* Vidro claro (backdrop-filter sobre fundo claro). A linha fina dividindo as 2 colunas so existe no modo COB, ver .container-duplo::after; o modo CTR e uma coluna so. */
+.modal-notificacao-content {
+    background-color: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    width: 1200px; height: 80vh; max-width: 95vw; border-radius: 10px;
+    color: #2b2b2b;
+    border: 1px solid #e2e2e2;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+    display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-notificacao-header {
+    position: relative; background: #fafafa; padding: 14px 55px 14px 20px;
+    display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #ececec;
+}
+.modal-notificacao-titulo { margin: 0; font-size: 15px; color: #2b2b2b; }
+.modal-notificacao-header .btn-fechar {
+    position: absolute;
+    right: 20px;
+    background: none;
+    border: none;
+    color: #9a9a9a;
+    font-size: 24px;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+.modal-notificacao-header .btn-fechar:hover { color: #2b2b2b; }
+
+/* Interruptor de design duplo (Volante/Cobertura / Contrato): rotulo abreviado (COB/CTR) grudado no titulo; o nome por extenso aparece no tooltip flutuante (mostrarTooltip/esconderTooltip). */
+.switch-container { display: flex; align-items: center; gap: 8px; color: #006f73; font-weight: 700; font-size: 11px; letter-spacing: .03em; text-transform: uppercase; margin-left: auto; }
+.switch-container span { cursor: default; }
+.switch { position: relative; display: inline-block; width: 38px; height: 20px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+
+.slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #e2e2e2; border: 2px solid #d5d5d5; transition: .4s; border-radius: 34px;
+}
+.slider:before {
+    position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px;
+    background-color: #ffffff; transition: .4s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+
+input:checked + .slider { background-color: #006f73; border-color: #006f73; }
+input:checked + .slider:before { transform: translateX(18px); background-color: #ffffff; }
+
+.modal-notificacao-body { padding: 30px; display: flex; flex-direction: column; gap: 15px; flex: 1; overflow-y: hidden; background: transparent; }
+
+.container-duplo { display: flex; gap: 30px; width: 100%; height: 100%; position: relative; }
+/* Linha fina dividindo as duas colunas ao meio - era branca sobre o vidro
+   escuro (Modelo 7), agora escura sobre o vidro claro. */
+.container-duplo::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 0; bottom: 0; width: 1px;
+    background: rgba(0, 0, 0, 0.1);
+}
+.coluna-form, .coluna-preview {
+    flex: 1; display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.55); border: 1px solid #ececec; border-radius: 14px;
+    padding: 20px; overflow: hidden;
+}
+.coluna-form h4, .coluna-preview h4 {
+    margin-top: 0; color: #006f73; border-bottom: 1px solid #ececec; padding-bottom: 10px; margin-bottom: 20px; font-size: 16px;
+}
+
+.form-group { margin-bottom: 18px; display: flex; flex-direction: column; gap: 8px; }
+.form-group label { font-size: 11px; color: #9a9a9a; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+
+/* Início/Término lado a lado em vez de empilhados. */
+.form-row-duplo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.form-row-duplo .form-group { margin-bottom: 0; }
+
+.coluna-preview-rotulo { font-size: 11px; font-weight: 700; color: #9a9a9a; letter-spacing: .03em; text-transform: uppercase; margin-bottom: 10px; }
+
+.input-padrao {
+    background-color: #fff; border: 1px solid #d9d9d9; color: #2b2b2b; padding: 12px; border-radius: 5px;
+    font-size: 14px; outline: none; transition: border 0.3s;
+}
+.input-padrao::placeholder { color: #b5b5b5; }
+.input-padrao:focus { border-color: #006f73; }
+
+/* Busca de colaborador (matricula ou nome) na tela CONTRATO do modal de Notificacao: mesmo padrao do Adicionar Colaborador do CDV (.add-resultado-item). */
+.notif-resultados-busca {
+    display: none; flex-direction: column; gap: 1px; max-height: 220px; overflow-y: auto;
+    background: #fff; border: 1px solid #d9d9d9; border-radius: 6px; margin-top: 8px;
+}
+.notif-resultados-busca.mostrando { display: flex; }
+
+.notif-resultado-item { padding: 8px 10px; font-size: 12.5px; color: #2b2b2b; cursor: pointer; border-bottom: 1px solid #ececec; }
+.notif-resultado-item:last-child { border-bottom: none; }
+.notif-resultado-item:hover { background: #fafafa; }
+.notif-resultado-item.notif-resultado-vazio { cursor: default; color: #9a9a9a; }
+.notif-resultado-item.notif-resultado-vazio:hover { background: none; }
+
+.notif-resultado-detalhe { font-size: 11px; color: #9a9a9a; margin-top: 2px; }
+
+.caixa-preview {
+    background-color: #fff; border: 1px solid #e2e2e2; border-radius: 5px; padding: 20px;
+    color: #2b2b2b; font-family: inherit; font-size: 14px; white-space: pre-wrap;
+    flex: 1; overflow-y: auto; margin-bottom: 15px; line-height: 1.6;
+}
+
+.btn-copiar {
+    background-color: #006f73; color: white; border: none; padding: 15px; border-radius: 5px;
+    font-weight: bold; font-size: 14px; cursor: pointer; transition: background-color 0.3s, transform 0.1s; text-align: center;
+}
+.btn-copiar:hover { background-color: #00565a; transform: translateY(-2px); }
+
+.btn-lista-add, .btn-lista-remove {
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 15px 20px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-lista-add { background-color: #006f73; }
+.btn-lista-remove { background-color: #453f5a; }
+
+.btn-lista-salvar, .btn-lista-cancelar {
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 15px;
+    flex: 1;
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-lista-salvar { background-color: #006f73; }
+.btn-lista-cancelar { background-color: #453f5a; }
+
+.btn-lista-add:hover, .btn-lista-remove:hover, .btn-lista-salvar:hover, .btn-lista-cancelar:hover {
+    box-shadow: 0 6px 12px rgba(0,0,0,0.25);
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+}
+
+/* Tabelas auxiliares pra leitura direta de Excel na nuvem pelo HTML */
+/* separate (nao collapse), como em .tabela-visualizacao table: com collapse o cabecalho sticky deixa a linha de baixo vazar por cima durante o scroll. */
+.tabela-editavel { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; color: #2b2b2b; table-layout: fixed; }
+.tabela-editavel th { background-color: #006f73; color: white; padding: 10px; border: 1px solid #00565a; position: sticky; top: 0; z-index: 1; text-align: center; }
+.tabela-editavel td { padding: 0; border: 1px solid #ececec; height: 35px; text-align: center; }
+.tabela-editavel input {
+    width: 100%; height: 100%; box-sizing: border-box; border: none; padding: 8px 10px;
+    background: transparent; font-family: inherit; font-size: inherit; color: #2b2b2b; text-align: center;
+}
+.tabela-editavel input:focus { outline: 2px solid #006f73; background-color: rgba(0, 111, 115, 0.06); }
+/* Modo "excluir linha" (removerLinhaTabela em backend/filtro.js): a linha
+   inteira vira o alvo do clique, entao os campos param de receber foco. */
+.modo-excluir-linha .tabela-editavel tbody tr { cursor: pointer; }
+.modo-excluir-linha .tabela-editavel tbody input { pointer-events: none; }
+.modo-excluir-linha .tabela-editavel tbody tr:hover td { background-color: rgba(231, 76, 60, 0.25) !important; } /* !important: vence o "tr:hover td" geral */
+.modo-excluir-linha .btn-lista-remove { background-color: #e74c3c; outline: 2px solid #e74c3c; outline-offset: 2px; }
+
+/* Valor padrao do Vale Alimentacao na gaveta de Beneficios > Intermitentes (#btn-editar-va em beneficios/bene-intermitente.html): lapis a esquerda, caixa a direita, travada ate o lapis destravar.
+   "R$" e rotulo fixo. Cores pelos tokens --dt-* (tema escuro acompanha). */
+.grupo-va { display: flex; align-items: center; gap: 8px; }
+.campo-va {
+    display: flex;
+    align-items: center;
+    width: 104px;
+    height: 38px;
+    box-sizing: border-box;
+    border: 1px solid var(--dt-border);
+    border-radius: 5px;
+    background-color: var(--dt-surface-2);
+    overflow: hidden;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.campo-va.editando { background-color: var(--dt-surface); border-color: #27ae60; }
+.campo-va.editando:focus-within { outline: 2px solid #27ae60; outline-offset: 1px; }
+.campo-va .moeda {
+    flex: none;
+    padding: 0 2px 0 10px;
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--dt-text);
+    user-select: none;
+}
+.campo-va input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 0 8px 0 4px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--dt-text);
+}
+.campo-va input[readonly] { opacity: 0.7; cursor: not-allowed; }
+
+/* ============================================================
+   16. INTERMITENTES
+   ============================================================ */
+.header-planilha {
+    text-align: center;
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid #ddd;
+    border-bottom: none;
+    margin-top: 10px;
+    display: none;
+}
+
+.header-planilha h2.titulo-relatorio {
+    margin: 10px 0 !important;
+    padding: 0 !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+    font-size: 1.4rem !important;
+}
+
+.header-planilha .info-cabecalho {
+    margin: 6px 0 !important;
+    padding: 0 !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+    font-size: 1.1rem !important;
+}
+
+.status-celula {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    padding: 80px;
+    color: #000;
+    font-weight: 500;
+    font-size: 16px;
+    text-align: center;
+}
+
+.col-nome {
+    text-align: left !important;
+    padding-left: 15px !important;
+    min-width: 200px;
+}
+
+.col-total {
+    font-weight: bold;
+    background-color: #f9f9f9;
+}
+
+/* Botoes de acao da tabela (ocultos ate clicar no lapis), altura 38px igual a .btn-arquivo/"Exportar planilha". */
+.btn-lapis,
+.btn-add,
+.btn-remove {
+    color: white !important;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    font-weight: bold;
+    font-size: 13px;
+    width: 65px;
+    height: 38px;
+}
+
+.btn-lapis {
+    background-color: #5b5375;
+}
+
+.btn-add {
+    background-color: #5b5375;
+    font-size: 24px;
+    display: none;
+}
+
+.btn-remove {
+    background-color: #453f5a;
+    font-size: 24px;
+    display: none;
+}
+
+.btn-lapis:hover,
+.btn-add:hover,
+.btn-remove:hover {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+}
+
+.btn-email {
+    color: white !important;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    font-weight: bold;
+    font-size: 24px;
+    width: 65px;
+    height: 38px;
+    background-color: #d4ac0d;
+}
+
+.btn-email:hover {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+}
+
+.input-obs {
+    width: 100%;
+    border: 1px solid transparent;
+    background: transparent;
+    font-size: 11px;
+    outline: none;
+}
+
+.input-obs:focus,
+.input-obs:hover {
+    border: 1px solid #006f73;
+    background: #fff;
+    border-radius: 3px;
+}
+
+/* Gaveta lateral de configuracao dos VTs - medidas proprias desta pagina,
+   diferentes da gaveta do SOLICITACAO (mesmos nomes de classe, outro
+   proposito), por isso escopados em "body.pagina-intermitentes". */
+body.pagina-intermitentes .btn-hamburguer {
+    /* Nem fixed nem absolute: o botao e filho comum de .controles-superiores (bene-intermitente.html), no mesmo flex row do Importar (justify-content:space-between o leva pra direita), na mesma altura e sem sobrepor a tabela.
+       fixed/absolute pairavam sobre as linhas porque a tabela (.tabela-cabecalho-fixo, max-height:calc(100vh - 216px)) rola por dentro de si e o documento quase nao rola. */
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px;
+}
+
+body.pagina-intermitentes .btn-hamburguer span {
+    display: block;
+    width: 30px;
+    height: 4px;
+    background-color: #000000;
+    border-radius: 2px;
+    transition: 0.3s;
+}
+
+body.pagina-intermitentes .sidebar {
+    position: fixed;
+    top: 0;
+    right: -35vw;
+    width: 33.33vw;
+    height: 100vh;
+    background-color: #ffffff;
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.2);
+    z-index: 2000;
+    transition: right 0.4s ease-in-out;
+    padding: 100px 20px 30px 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+body.pagina-intermitentes .sidebar.active { right: 0; }
+
+body.pagina-intermitentes .overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    z-index: 1999;
+}
+
+body.pagina-intermitentes .overlay.active { display: block; }
+
+/* Moldura integral arredondada da tabela do menu lateral: cabecalho teal como o resto do site, sem grade vertical, so uma linha fina embaixo de cada linha. */
+.tabela-menu {
+    width: 100%;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    border: 1px solid #d7dee0 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    font-size: 10.5px;
+}
+
+.tabela-menu th,
+.tabela-menu td {
+    padding: 7px 9px;
+    border: none !important;
+    border-bottom: 1px solid #eef1f2 !important;
+    text-align: left;
+}
+
+.tabela-menu th {
+    background-color: #006f73;
+    color: #ffffff !important;
+    font-weight: 700;
+}
+
+.tabela-menu td {
+    color: #1a1a1a !important;
+    font-weight: 600;
+}
+
+.tabela-menu tbody tr:last-child td {
+    border-bottom: none !important;
+}
+
+/* Selo Sim/Nao da coluna OPTANTE (mesma tabela do menu lateral) - verde
+   pra quem recebe VT, cinza pra quem nao optou. */
+.selo-optante {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 700;
+}
+
+.selo-optante-sim { background: #e3f6ea; color: #1c7a4a; }
+.selo-optante-nao { background: #f0f0f0; color: #8a8a8a; }
+
+.rodape-acoes {
+    display: flex;
+    justify-content: space-between;
+    padding: 20px;
+}
+
+.rodape-acoes-left,
+.rodape-acoes-right {
+    display: flex;
+    gap: 15px;
+}
+
+.check-excluir {
+    transform: scale(1.3);
+    cursor: pointer;
+}
+
+/* ============================================================
+   17. PFM
+   ============================================================ */
+.tabela-visualizacao tbody tr:last-child td:first-child,
+.tabela-visualizacao tbody tr:last-child td:last-child {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+
+
+/* Barra de abas simulando o rodape de uma pasta de trabalho Excel */
+.barra-abas-excel {
+    display: flex;
+    background-color: #f1f3f5;
+    border-top: 1px solid #ddd;
+    padding: 10px 20px 0 20px;
+    align-items: flex-end;
+    border-bottom-left-radius: 27px;
+    border-bottom-right-radius: 27px;
+    gap: 5px;
+}
+
+.btn-aba-excel {
+    background-color: #e9ecef;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    padding: 8px 22px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    transition: all 0.2s ease;
+    height: 34px;
+    display: flex;
+    align-items: center;
+}
+
+.btn-aba-excel:hover {
+    background-color: #dee2e6;
+    color: #000000;
+}
+
+.btn-aba-excel.ativa {
+    background-color: #ffffff;
+    color: #006f73;
+    border-top: 3px solid #006f73;
+    border-left: 1px solid #ddd;
+    border-right: 1px solid #ddd;
+    font-weight: bold;
+    height: 37px;
+    margin-bottom: -1px;
+    z-index: 2;
+}
+
+/* ============================================================
+   18. INDEX - TELA DE LOGIN E PAINEL DE ADMINISTRACAO
+   ============================================================ */
+/* Paleta oficial do manual de identidade visual do Sua Empresa (pag. "Paleta de
+   cores"): #006f73 = primaria "Engenharia | Tradicao", #5b5375 = primaria
+   "Inovacao | Modernidade". Todo o resto da tela deriva dessas duas. */
+body.pagina-index {
+    margin: 0;
+    display: block;
+    /* height: auto anula o height: 100% de (body, html), senao a pagina nao rola e o botao Entrar fica inalcancavel quando as colunas empilham no celular. min-height cobre a tela inteira. */
+    height: auto;
+    min-height: 100vh;
+    font-family: 'Barlow', 'Segoe UI', Helvetica, sans-serif;
+    background: #062120;
+    color: #e6f5f3;
+}
+
+/* Duas colunas: vitrine da marca a esquerda, formulario a direita */
+.login-tela {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    min-height: 100vh;
+}
+
+/* ---------------- painel esquerdo (vitrine da marca) ---------------- */
+.login-vitrine {
+    position: relative;
+    overflow: hidden;
+    padding: 48px 64px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background:
+        radial-gradient(120% 90% at 15% 0%, #12403d 0%, rgba(18,64,61,0) 60%),
+        radial-gradient(90% 80% at 90% 100%, #0d3a39 0%, rgba(13,58,57,0) 65%),
+        linear-gradient(160deg, #0a2c2b 0%, #062120 100%);
+}
+
+/* Malha discreta ao fundo */
+.login-grade {
+    position: absolute;
+    inset: 0;
+    opacity: 0.5;
+    background-image:
+        linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+    background-size: 72px 72px;
+}
+
+/* Formas angulares da identidade (rodape das paginas do manual) */
+.login-montanhas {
+    position: absolute;
+    left: -60px;
+    bottom: -40px;
+    width: 520px;
+    height: 260px;
+    opacity: 0.55;
+}
+.montanha {
+    position: absolute;
+    bottom: 0;
+    width: 0;
+    height: 0;
+    border-left: solid transparent;
+    border-right: solid transparent;
+    border-bottom-style: solid;
+}
+.montanha-a { left:  40px; border-left-width: 150px; border-right-width: 150px; border-bottom-width: 190px; border-bottom-color: #2f4f57; }
+.montanha-b { left: 180px; border-left-width: 130px; border-right-width: 130px; border-bottom-width: 150px; border-bottom-color: #1d6a68; }
+.montanha-c { left: -20px; border-left-width: 100px; border-right-width: 100px; border-bottom-width: 120px; border-bottom-color: #14514f; }
+
+.vitrine-topo {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+/* Versao padrao da marca sobre placa clara - aplicacao que o manual
+   determina para fundo escuro */
+.login-marca {
+    display: flex;
+    flex-shrink: 0;
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 12px 16px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+}
+.login-marca img { display: block; height: 52px; width: auto; }
+
+.marca-texto {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    border-left: 1px solid rgba(255,255,255,0.14);
+    padding-left: 18px;
+}
+.marca-nome {
+    font-size: 13px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #4fd1c5;
+    font-weight: 600;
+}
+.marca-desc {
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    color: rgba(230,245,243,0.6);
+}
+
+.vitrine-centro {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+    max-width: 560px;
+}
+
+.vitrine-titulo {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+}
+.sigla {
+    font-size: 132px;
+    line-height: 0.82;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+}
+.sigla-risco {
+    width: 2px;
+    height: 92px;
+    flex-shrink: 0;
+    background: linear-gradient(#12a0a0, rgba(18,160,160,0));
+}
+.sigla-extenso {
+    font-size: 22px;
+    line-height: 1.25;
+    color: rgba(230,245,243,0.82);
+    padding-bottom: 6px;
+}
+
+.vitrine-texto {
+    margin: 0;
+    max-width: 460px;
+    font-size: 17px;
+    line-height: 1.65;
+    font-weight: 300;
+    color: rgba(230,245,243,0.66);
+}
+
+.vitrine-tags { display: flex; gap: 10px; flex-wrap: wrap; }
+.tag {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #4fd1c5;
+    border: 1px solid rgba(79,209,197,0.35);
+    border-radius: 999px;
+    padding: 7px 14px;
+}
+
+.vitrine-rodape {
+    position: relative;
+    font-size: 12.5px;
+    letter-spacing: 0.1em;
+    color: rgba(230,245,243,0.38);
+}
+
+/* --- Brilho ao passar o mouse ---
+   So cor, sombra e um deslocamento minimo: nada que altere o espaco ocupado
+   pelos elementos, pra nao empurrar o layout durante o hover. */
+.marca-nome,
+.marca-desc,
+.sigla,
+.sigla-extenso,
+.vitrine-texto,
+.tag {
+    transition: color 0.25s ease, letter-spacing 0.25s ease,
+                background 0.25s ease, border-color 0.25s ease,
+                transform 0.3s ease, text-shadow 0.3s ease;
+}
+
+.marca-texto:hover .marca-nome {
+    color: #a8ede5;
+    letter-spacing: 0.26em;
+}
+.marca-texto:hover .marca-desc { color: rgba(230, 245, 243, 0.88); }
+
+/* O inline-block e necessario: em elemento inline o transform nao se aplica */
+.sigla { display: inline-block; }
+.sigla:hover {
+    transform: translateY(-4px);
+    text-shadow: 0 0 36px rgba(79, 209, 197, 0.75);
+}
+
+.sigla-extenso:hover { color: #ffffff; }
+
+.vitrine-texto:hover { color: rgba(230, 245, 243, 0.92); }
+
+.tag:hover {
+    background: rgba(79, 209, 197, 0.16);
+    border-color: rgba(79, 209, 197, 0.7);
+    color: #e6f5f3;
+    transform: translateY(-2px);
+}
+
+/* ---------------- painel direito (formulario) ---------------- */
+.login-forma {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    background: #072625;
+    border-left: 1px solid rgba(255,255,255,0.06);
+}
+
+.forma-caixa {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+.forma-cabecalho { margin-bottom: 28px; }
+.forma-cabecalho h1 {
+    margin: 0 0 8px 0;
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #ffffff;
+}
+.forma-cabecalho p {
+    margin: 0;
+    font-size: 15.5px;
+    line-height: 1.55;
+    font-weight: 300;
+    color: rgba(230,245,243,0.6);
+}
+
+.campo-rotulo {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: rgba(230,245,243,0.5);
+}
+
+.campo-login {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 54px;
+    margin-bottom: 14px;
+    padding: 0 20px;
+    box-sizing: border-box;
+    background: #0c3130;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 999px;
+    /* Recorta o preenchimento que o Chrome pinta dentro do <input> no
+       autopreenchimento - sem isso ele vaza pelos cantos arredondados,
+       porque quem tem o raio e esta caixa, nao o input. */
+    overflow: hidden;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.campo-login:focus-within {
+    border-color: #12a0a0;
+    box-shadow: 0 0 0 3px rgba(18,160,160,0.18);
+}
+
+.campo-icone {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: rgba(230,245,243,0.55);
+}
+
+.campo-login input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    background: transparent;
+    border: 0;
+    outline: none;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 16px;
+    padding: 0;
+}
+.campo-login input::placeholder { color: rgba(230,245,243,0.38); }
+
+.campo-login input:-webkit-autofill,
+.campo-login input:-webkit-autofill:hover,
+.campo-login input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #ffffff;
+    -webkit-box-shadow: 0 0 0 1000px #0c3130 inset;
+    caret-color: #ffffff;
+    transition: background-color 9999s ease-in-out 0s;
+}
+
+.btn-olho {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    margin-right: -12px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: rgba(230,245,243,0.6);
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+.btn-olho:hover { background: rgba(255,255,255,0.07); color: #ffffff; }
+.btn-olho svg { width: 19px; height: 19px; }
+
+#erro-msg {
+    margin: 18px 0 0 0;
+    font-size: 13px;
+    text-align: center;
+    color: #ff8b7d;
+    display: none;
+}
+
+/* Empilha as duas colunas em tela estreita */
+@media (max-width: 900px) {
+    .login-tela { grid-template-columns: 1fr; }
+    .login-vitrine { padding: 36px 28px 44px; gap: 30px; }
+    .sigla { font-size: 84px; }
+    .sigla-risco { height: 62px; }
+    .sigla-extenso { font-size: 19px; }
+    .login-forma {
+        padding: 36px 24px 56px;
+        border-left: 0;
+        border-top: 1px solid rgba(255,255,255,0.06);
+    }
+}
+
+/* HOTBAR EM TELA ESTREITA: reduz padding/fonte e transforma a fileira de botoes em algo que ROLA na horizontal em vez de cortar/sobrepor, pra nenhum item ficar inalcancavel. */
+/* TABELAS EM TELA ESTREITA: em vez de espremer as colunas (table-layout:fixed em %), a tabela tem largura MINIMA e rola na horizontal.
+   Cabecalho e corpo rolam separados (ver o "bug de repintura" na secao de tabelas); sincronizarRolagemHorizontalTabelas() em filtro.js os mantem juntos. */
+@media (max-width: 640px) {
+    .tabela-visualizacao,
+    .tabela-cabecalho-fixo,
+    .tabela-corpo-rolavel {
+        overflow-x: auto !important;
+    }
+    .tabela-cabecalho-fixo table,
+    .tabela-corpo-rolavel table {
+        min-width: 640px;
+    }
+    .tabela-cabecalho-fixo th,
+    .tabela-corpo-rolavel td {
+        white-space: nowrap;
+    }
+}
+
+/* Hotbar em tela estreita: a pilula de navegacao quebra os botoes em mais de 1 linha (cresce em altura, sem cortar nem sobrepor) e a de sino/perfil so encolhe um pouco de padding. */
+@media (max-width: 640px) {
+    .hotbar-nav {
+        height: auto;
+        min-height: 54px;
+        padding: 8px 14px;
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+    .hotbar-util {
+        height: 54px;
+        padding: 0 14px;
+        gap: 12px;
+    }
+    .hotbar-dropdown-container {
+        margin-right: 12px;
+        height: 26px;
+    }
+    .hotbar-btn {
+        font-size: 10.5px;
+        padding: 6px 6px;
+    }
+    .btn-sino {
+        font-size: 19px;
+    }
+    .btn-perfil {
+        width: 19px;
+        height: 19px;
+    }
+}
+
+.btn-salvar {
+    color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;
+    padding: 12px 25px; background-color: #006f73;
+}
+
+.btn-salvar:hover {
+    background-color: #5b5375; transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+}
+
+/* Botao ENTRAR: pilula no teal primario do manual (#006f73), com um toque do
+   roxo secundario (#5b5375) na ponta. De proposito NAO usa o hover vermelho
+   dos outros botoes do sistema - numa tela de login o vermelho passa ideia
+   de erro/recusa, alem de nao pertencer a paleta da marca. */
+.btn-entrar {
+    width: 100%;
+    height: 56px;
+    margin-top: 10px;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #0c6f70 0%, #12a0a0 100%);
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 14px 30px rgba(18, 160, 160, 0.28);
+    transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.btn-entrar:hover:not(:disabled) {
+    background: linear-gradient(90deg, #0f8384 0%, #16b4b4 100%);
+}
+
+.btn-entrar:active:not(:disabled) { box-shadow: 0 6px 14px rgba(18, 160, 160, 0.22); }
+.btn-entrar:disabled { opacity: 0.65; cursor: wait; }
+
+/* Painel de usuarios (usuarios.html): mesma paleta clara das demais tabelas do site (secao 5). Busca por nome (filtrarLinhasAdmin). */
+.admin-busca {
+    width: 100%; padding: 10px 12px; background-color: var(--dt-surface); border: 1px solid var(--dt-border);
+    color: var(--dt-text); border-radius: 6px; box-sizing: border-box; font-family: inherit; font-size: 13.5px;
+}
+.admin-busca:focus { outline: none; border-color: #006f73; }
+.admin-busca::placeholder { color: #999; }
+
+/* Tabela de usuarios (painel admin), usada por Acessos e Solicitacoes do Gestor/Preposto. Sem borda propria no wrapper (so sombra):
+   borda nos 4 lados cruzando com o border-bottom de cada linha criava efeito de "regua" na lateral. */
+.admin-tabela-wrapper {
+    overflow-y: auto; max-height: 400px; background-color: var(--dt-surface);
+    border: none; border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    /* Mesmo motivo do scroll-snap em .tabela-visualizacao mais acima. */
+    scroll-snap-type: y mandatory;
+    /* Altura do cabecalho sticky (34px, uma linha): sem isso o encaixe para com a linha de cima ATRAS dele e, no topo, volta
+       sozinho 34px - o primeiro usuario ficava escondido (Usuarios). */
+    scroll-padding-top: 34px;
+}
+
+/* separate (nao collapse), como em .tabela-visualizacao table: com collapse o cabecalho sticky deixa a linha de baixo vazar por cima. */
+.admin-tabela { width: 100%; border-collapse: separate; border-spacing: 0; }
+
+/* border:none inteiro (nao so border-bottom): a regra global "thead th" aplica borda nos 4 lados e, mais especifica, deixaria esquerda/direita/topo vazarem. */
+.admin-tabela thead th {
+    position: sticky; top: 0; background-color: #006f73;
+    color: white; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    text-align: left; padding: 10px 12px; border: none;
+}
+
+.admin-linha {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
+
+/* Idem thead th: a regra global "td" tambem aplica borda nos 4 lados, entao esquerda/direita/topo precisam ser zeradas explicitamente. */
+.admin-tabela td {
+    padding: 8px 10px; border-left: none; border-right: none; border-top: none;
+    border-bottom: 1px solid var(--dt-border); background-color: var(--dt-surface);
+    color: var(--dt-text); vertical-align: middle;
+}
+.admin-tabela tr:last-child td { border-bottom: none; }
+.admin-tabela tr:hover td { background-color: var(--dt-row-hover); }
+
+/* Tabela de Usuarios (RH): .centros-custo-btn e white-space:nowrap, e com table-layout:auto a coluna crescia sem limite (varios centros de custo empurravam Cobertura e o botao Remover pra fora da tela).
+   table-layout:fixed com largura por coluna da um teto real, entao o texto longo so trunca. Larguras: Centro de custo = metade de Cobertura; Usuario mais largo. */
+.tabela-usuarios-admin { table-layout: fixed; }
+.tabela-usuarios-admin th:nth-child(1), .tabela-usuarios-admin td:nth-child(1) { width: 16%; } /* Usuario */
+.tabela-usuarios-admin th:nth-child(2), .tabela-usuarios-admin td:nth-child(2) { width: 18%; } /* Perfil */
+.tabela-usuarios-admin th:nth-child(3), .tabela-usuarios-admin td:nth-child(3) { width: 21%; } /* Centro de custo */
+.tabela-usuarios-admin th:nth-child(4), .tabela-usuarios-admin td:nth-child(4) { width: 37%; } /* Cobertura (quem cobre) */
+.tabela-usuarios-admin th:nth-child(5), .tabela-usuarios-admin td:nth-child(5) { width: 8%; }  /* Remover */
+
+/* TABELA REFINADA (pagina Acessos): cabecalho e grade sem linhas verticais vem de .admin-tabela (compartilhada com Solicitacoes do Gestor/Preposto);
+   aqui so o exclusivo de Acessos: largura fixa por coluna, chip de Perfil e campos sem caixa. */
+
+/* Campo de Usuario/Centro de Custo/Cobertura sem caixa (texto puro clicavel, como Equipe/Solicitacao/PFM). Perfil fica de fora (.perfil-chip-btn): o chip colorido ali e proposital. */
+.tabela-usuarios-admin .table-input,
+.tabela-usuarios-admin .centros-custo-btn:not(.perfil-chip-btn) {
+    border: none !important;
+    background: transparent !important;
+    padding: 4px 0 !important;
+}
+/* So-leitura (ver readonly em criarLinhaHTML) - cursor de texto (I-beam)
+   sugeriria que da pra editar, quando na verdade nao muda nada. */
+.tabela-usuarios-admin .table-input[readonly] {
+    cursor: default;
+}
+
+/* Celula Usuario vira flex (avatar + campo, criarLinhaHTML): o campo precisa de flex:1/min-width:0 pra ocupar o resto em vez de espremer no width:100% de .table-input/.centros-custo-btn. */
+.val-usuario .table-input, .val-usuario .centros-custo-btn { flex: 1; min-width: 0; }
+
+/* Avatar com iniciais antes do nome de usuario (ver criarLinhaHTML). */
+.avatar-usuario {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 26px; height: 26px; border-radius: 50%; color: #ffffff;
+    font-size: 10px; font-weight: 700; font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* Botao de Perfil vira "chip" colorido; Centro de Custo/Cobertura seguem como campos de formulario. */
+.perfil-chip-btn {
+    width: auto !important; display: inline-block; border: none !important; border-radius: 20px !important;
+    padding: 4px 12px !important; font-size: 11px !important; font-weight: 700;
+    background-color: #eef2f3 !important; color: #64748b !important;
+}
+.perfil-chip-btn.preenchido {
+    background-color: var(--cor-chip-bg, #e6f2f2) !important; color: var(--cor-chip-texto, #006f73) !important;
+}
+
+/* "Remover" vira icone (lixeira) em vez de texto - mesmo espirito
+   compacto do resto do redesenho. */
+.btn-remover-icone {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; background: transparent; color: #c0392b;
+    border: none; border-radius: 6px; cursor: pointer; transition: background-color 0.15s ease;
+}
+.btn-remover-icone:hover { background-color: #fdecea; }
+.btn-remover-icone svg { width: 15px; height: 15px; }
+
+.table-input {
+    width: 100%; padding: 9px 10px; background-color: var(--dt-surface); border: 1px solid var(--dt-border);
+    color: var(--dt-text); border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 13.5px;
+}
+.table-input:focus { outline: none; border-color: #006f73; }
+.table-input::placeholder { color: #999; }
+
+.papel-select {
+    width: 100%; padding: 9px 8px; background-color: var(--dt-surface); border: 1px solid var(--dt-border);
+    color: var(--dt-text); border-radius: 4px; box-sizing: border-box; font-family: inherit;
+    font-size: 13px; cursor: pointer;
+}
+.papel-select:focus { outline: none; border-color: #006f73; }
+
+/* Seletor de centros de custo de um Gestor - botao que abre uma lista com
+   checkbox por centro (ver abrirCentrosCustoPicker em usuarios.html). So
+   aparece na linha quando o papel selecionado e "gestor". */
+.centros-custo-btn {
+    width: 100%; padding: 9px 10px; background-color: var(--dt-surface); border: 1px solid var(--dt-border);
+    color: var(--dt-text-muted); border-radius: 4px; box-sizing: border-box; font-family: inherit;
+    font-size: 12.5px; cursor: pointer; text-align: left;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.centros-custo-btn.preenchido { color: var(--dt-text); }
+.centros-custo-btn:hover { border-color: #006f73; }
+
+/* Mesmo botao desabilitado, na linha de um usuario RH (.centro-custo-todos-fixo, "Todos os contratos"): RH tem acesso irrestrito pelo papel (nunca tem linha em usuario_centros_custo), so informativo. */
+.centros-custo-btn:disabled {
+    cursor: default; opacity: 0.6; background-color: #f5f5f5;
+}
+.centros-custo-btn:disabled:hover { border-color: #ccc; }
+
+.centros-custo-painel {
+    position: fixed; z-index: 4000; background-color: var(--dt-surface); border: 1px solid var(--dt-border);
+    border-radius: 8px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    width: 260px; max-height: 320px; display: flex; flex-direction: column;
+}
+.centros-custo-painel-busca {
+    padding: 10px; border-bottom: 1px solid var(--dt-border); flex-shrink: 0;
+}
+.centros-custo-painel-busca input {
+    width: 100%; padding: 8px 10px; background-color: var(--dt-surface); border: 1px solid var(--dt-border);
+    color: var(--dt-text); border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 12.5px;
+}
+.centros-custo-painel-lista { overflow-y: auto; padding: 6px; }
+.centros-custo-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 5px;
+    cursor: pointer; font-size: 12.5px; color: var(--dt-text);
+}
+.centros-custo-item:hover { background-color: var(--dt-row-hover); }
+.centros-custo-item input { cursor: pointer; }
+.centros-custo-item input:disabled { cursor: not-allowed; }
+.centros-custo-item:has(input:disabled) { color: #b5b5b5; cursor: not-allowed; }
+.centros-custo-item:has(input:disabled):hover { background-color: transparent; }
+
+/* "Todos os contratos": opcao fixa (fora da lista filtravel), da acesso irrestrito de verdade, inclusive a centros de custo criados DEPOIS (centrosCustoLiberados em backend/api/db.php), nao so os que existem hoje. */
+.centros-custo-item-todos {
+    display: flex; align-items: center; gap: 8px; padding: 9px 10px;
+    margin: 6px 6px 0 6px; border-radius: 5px; cursor: pointer;
+    font-size: 12.5px; font-weight: bold; color: #006f73;
+    background-color: #e6f1f1; border: 1px solid #b8dede;
+}
+.centros-custo-item-todos:hover { background-color: #d9ecec; }
+.centros-custo-item-todos input { cursor: pointer; }
+
+.btn-remover {
+    background: transparent; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 20px;
+    padding: 8px 12px; font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s ease;
+    white-space: nowrap;
+}
+.btn-remover:hover { background-color: #e74c3c; color: white; }
+
+/* Aviso de cadastro novo incompleto (ver atualizarAvisoIncompletoLinha,
+   usuarios.html) - fica sob o botao Remover ate Perfil/Centro de Custo
+   serem preenchidos. */
+.aviso-cadastro-incompleto {
+    color: #e74c3c;
+    font-size: 10.5px;
+    margin-top: 4px;
+    white-space: normal;
+    max-width: 140px;
+}
+
+/* "+ Novo usuario" - mesmo desenho compacto do .btn-arquivo (Importar/
+   Exportar) pra ficar consistente com o resto dos botoes de acao acima de
+   tabela no site. */
+.btn-adicionar {
+    display: inline-flex; align-items: center; gap: 7px; width: auto; background-color: #006f73; color: #ffffff;
+    border: none; border-radius: 8px; padding: 0 16px; height: 38px; box-sizing: border-box;
+    font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: left;
+    font-family: 'Segoe UI', Arial, sans-serif; transition: background-color 0.15s ease;
+}
+.btn-adicionar:hover { background-color: #00565a; }
+.btn-adicionar svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+.admin-tabela-wrapper::-webkit-scrollbar { width: 8px; }
+.admin-tabela-wrapper::-webkit-scrollbar-track { background: #f0f0f0; }
+.admin-tabela-wrapper::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+.admin-tabela-wrapper::-webkit-scrollbar-thumb:hover { background: #006f73; }
+
+.admin-actions {
+    display: flex; flex-direction: column; margin-top: 15px; gap: 10px;
+}
+
+#admin-status { font-size: 13px; text-align: right; display: none; }
+/* PAGINA USUARIOS (usuarios.html): painel de admin como pagina normal. Reaproveita .admin-tabela, .admin-busca, .papel-select, .centros-custo-* (regras acima); estes modificadores ajustam so o que muda fora de modal. */
+.usuarios-cabecalho {
+    max-width: 1000px;
+    margin: 0 auto 20px auto;
+    padding: 0 70px;
+}
+.usuarios-cabecalho h2 {
+    margin: 0 0 4px 0;
+    color: #006f73;
+    font-size: 26px;
+    font-weight: 600;
+}
+.usuarios-cabecalho p {
+    margin: 0;
+    color: #8f8f8f;
+    font-size: 14px;
+}
+
+/* .controles-superiores ja existe (secao 4); so precisa que a busca nao estique como os botoes de Colaboradores. :has() prende a regra no #usuarios-busca sem depender de elemento vizinho. */
+.controles-superiores:has(#usuarios-busca) {
+    max-width: 1000px;
+    margin: 0 auto 15px auto;
+}
+#usuarios-busca {
+    max-width: 320px;
+}
+
+
+.admin-tabela-wrapper-pagina {
+    max-width: 1000px;
+    margin: 0 auto;
+    max-height: 60vh;
+}
+
+.admin-actions-pagina {
+    max-width: 1000px;
+    margin: 15px auto 0 auto;
+}
+
+/* Calendario do mes atual no modal do Preposto (abrirModalSolicitacaoPreposto, colaboradores/cdv.html): so leitura, dias com solicitacao aberta pintados por motivo.
+   Resumo visual sempre visivel, nao o calendario-popup compartilhado (seletor de data). */
+.preposto-calendario-mes {
+    background: #232323; border: 1px solid #444; border-radius: 8px; padding: 10px;
+}
+.preposto-calendario-titulo {
+    text-align: center; color: #fff; font-size: 13px; font-weight: bold;
+    margin-bottom: 8px; text-transform: capitalize;
+}
+.preposto-calendario-grade {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px;
+}
+.preposto-calendario-dia-semana {
+    text-align: center; font-size: 9px; color: #888; text-transform: uppercase; padding-bottom: 2px;
+}
+.preposto-calendario-dia {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: #ccc; border-radius: 4px; box-sizing: border-box;
+}
+.preposto-calendario-dia.fora-do-mes { color: transparent; }
+.preposto-calendario-dia.hoje { border: 1px solid #006f73; }
+.preposto-calendario-dia.preposto-dia-falta { background: #e74c3c; color: #fff; font-weight: bold; }
+.preposto-calendario-dia.preposto-dia-atestado { background: #ff831d; color: #fff; font-weight: bold; }
+.preposto-calendario-dia.preposto-dia-servico_extra { background: #3498db; color: #fff; font-weight: bold; }
+.preposto-calendario-dia.preposto-dia-afastamento { background: #8e44ad; color: #fff; font-weight: bold; }
+.preposto-calendario-dia.preposto-dia-desligamento { background: #bdc3c7; color: #2c3e50; font-weight: bold; }
+
+.preposto-calendario-legenda {
+    display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 10px; font-size: 10px; color: #ccc;
+}
+.preposto-calendario-legenda span { display: flex; align-items: center; gap: 4px; }
+.preposto-calendario-legenda i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+/* Calendario do mes atual no modal de colaborador (abrirModalColaborador, colaboradores/cdv.html): so Gestor, mostra os dias em que o colaborador foi designado volante.
+   Mesmo padrao do calendario do Preposto, com uma unica cor de destaque. */
+.gestor-cobertura-calendario-mes {
+    background: #fafafa; border: 1px solid #ececec; border-radius: 8px; padding: 10px;
+}
+.gestor-cobertura-calendario-titulo {
+    text-align: center; color: #2b2b2b; font-size: 13px; font-weight: bold;
+    margin-bottom: 8px; text-transform: capitalize;
+}
+.gestor-cobertura-calendario-grade {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px;
+}
+.gestor-cobertura-calendario-dia-semana {
+    text-align: center; font-size: 9px; color: #9a9a9a; text-transform: uppercase; padding-bottom: 2px;
+}
+.gestor-cobertura-calendario-dia {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: #6b6b6b; border-radius: 4px; box-sizing: border-box;
+}
+.gestor-cobertura-calendario-dia.fora-do-mes { color: transparent; }
+.gestor-cobertura-calendario-dia.hoje { border: 1px solid #006f73; }
+
+/* 4 tipos de dia marcado no calendario-resumo (aba Cobertura do modal do colaborador), com legenda em .legenda-calendario-colab: base verde, cobertura vermelho, capacitacao laranja, ferias amarelo (as mesmas do .calendario-dia-*).
+   Prioridade quando mais de um cai no mesmo dia: cobertura > ferias > capacitacao > base (renderizarCalendarioCoberturaMes).
+   Numero preto nas 4 cores e nos 2 temas (pedido do usuario, 2026-11-09): o branco/cinza sumia no amarelo e no verde. */
+.gestor-cobertura-calendario-dia.designado-cobertura { background: #e74c3c; color: #000; font-weight: bold; }
+.gestor-cobertura-calendario-dia.designado-ferias { background: #f1c40f; color: #000; font-weight: bold; }
+.gestor-cobertura-calendario-dia.designado-capacitacao { background: #e67e22; color: #000; font-weight: bold; }
+.gestor-cobertura-calendario-dia.designado-base { background: #2ecc71; color: #000; font-weight: bold; }
+
+.cobertura-cabecalho-legenda {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin-bottom: 6px;
+}
+
+.legenda-calendario-colab {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.legenda-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
+    color: #6b6b6b;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.legenda-cor {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.legenda-cor-base { background: #2ecc71; }
+.legenda-cor-cobertura { background: #e74c3c; }
+.legenda-cor-ferias { background: #f1c40f; }
+.legenda-cor-capacitacao { background: #e67e22; }
+
+/* "X" de cancelar em colaboradores/solicitacoes-preposto.html: so aparece dentro da janela de 10 minutos (pode_cancelar, calculado no servidor). */
+.btn-cancelar-solicitacao {
+    width: 24px; height: 24px; border-radius: 50%; border: 1px solid #e74c3c;
+    background: transparent; color: #e74c3c; font-size: 12px; line-height: 1;
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.2s ease;
+}
+.btn-cancelar-solicitacao:hover { background-color: #e74c3c; color: white; }
+.btn-cancelar-solicitacao:disabled { opacity: 0.5; cursor: wait; }
+
+/* TEMA ESCURO: alternavel pelo botao do painel de perfil (.perfil-btn-tema), via alternarTema()/aplicarTema() em backend/filtro.js. Um atributo so ([data-tema="escuro"] no <html>, aplicado cedo pra nao flashar claro) liga todas as regras desta secao.
+   Cobre os popups/paineis compartilhados (perfil, notificacoes, toast, calendario de periodo, modais de edicao e o de Notificacao de Cobertura);
+   o menu suspenso da hotbar e o tooltip ficam escuros nos DOIS temas de proposito, por isso nao aparecem aqui. */
+
+[data-tema="escuro"] .painel-perfil {
+    background-color: #2c2c2c;
+    border-color: transparent;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+}
+[data-tema="escuro"] .perfil-nome { color: #fff; }
+[data-tema="escuro"] .perfil-papel { color: #b8b8b8; }
+[data-tema="escuro"] .perfil-papel-clicavel { background: none; color: #4fd1c5; }
+[data-tema="escuro"] .perfil-papel-clicavel:hover { background-color: rgba(255, 255, 255, 0.1); }
+[data-tema="escuro"] .perfil-papel-opcoes {
+    background-color: #3a3a3a;
+    border-color: transparent;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+[data-tema="escuro"] .perfil-papel-opcao { color: #e0e0e0; }
+[data-tema="escuro"] .perfil-papel-opcao:hover { background-color: rgba(255, 255, 255, 0.1); }
+[data-tema="escuro"] .perfil-btn-tema { background-color: rgba(255, 255, 255, 0.08); color: #4fd1c5; }
+[data-tema="escuro"] .perfil-btn-tema:hover { background-color: rgba(255, 255, 255, 0.15); }
+
+[data-tema="escuro"] .painel-notificacoes {
+    background-color: #2c2c2c;
+    border-color: transparent;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+}
+[data-tema="escuro"] .painel-header { background-color: #3d3d3d; border-bottom-color: #444; }
+[data-tema="escuro"] .painel-header h3 { color: #fff; }
+[data-tema="escuro"] .item-notificacao { background-color: #3d3d3d; color: #fff; }
+[data-tema="escuro"] .btn-dispensar-notificacao { color: rgba(255, 255, 255, 0.55); }
+[data-tema="escuro"] .btn-dispensar-notificacao:hover { color: #fff; background: rgba(255, 255, 255, 0.12); }
+[data-tema="escuro"] .notificacao-vazia { color: #aaa; }
+
+[data-tema="escuro"] .toast-msg {
+    background-color: #2c2c2c;
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+[data-tema="escuro"] .toast-spinner { border-color: rgba(255, 255, 255, 0.3); border-top-color: #fff; }
+
+[data-tema="escuro"] .calendario-popup {
+    background: linear-gradient(180deg, #202824 0%, #1a1d1c 30%, #141816 100%);
+    border-color: transparent;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+[data-tema="escuro"] .calendario-nav { border-color: rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.05); color: #fff; }
+[data-tema="escuro"] .calendario-nav:hover { background: rgba(255, 255, 255, 0.12); }
+[data-tema="escuro"] .calendario-titulo { color: #fff; }
+[data-tema="escuro"] .calendario-semana { color: #6b6b76; }
+[data-tema="escuro"] .calendario-dia { color: #fff; }
+[data-tema="escuro"] .calendario-dia:hover:not(.calendario-dia-fora):not(.calendario-dia-desabilitado):not(.gestor-seg-dia-coberto):not(.gestor-seg-dia-sem-cobertura) {
+    background: rgba(255, 255, 255, 0.08);
+}
+[data-tema="escuro"] .calendario-dia-fora { color: #45454e; }
+[data-tema="escuro"] .calendario-dia-desabilitado { color: #3a3a42; }
+
+[data-tema="escuro"] .modal-content {
+    background-color: #2c2c2c;
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+}
+
+/* O fundo escurecido atras do modal (rgba(0,0,0,0.6), fixo pros 2 temas) quase nao escurece uma pagina ja escura, dando impressao de "retangulo dentro de retangulo" atras do modal. */
+[data-tema="escuro"] .modal-overlay,
+[data-tema="escuro"] .modal-notificacao-cobertura {
+    background: rgba(0, 0, 0, 0.8);
+}
+[data-tema="escuro"] .modal-header { border-bottom-color: #444; }
+[data-tema="escuro"] .modal-header h3 { color: #4fd1c5; }
+[data-tema="escuro"] .btn-fechar { color: #aaa; }
+[data-tema="escuro"] .modal-abas-colab { border-bottom-color: #444; }
+[data-tema="escuro"] .modal-aba-colab { color: #999; }
+[data-tema="escuro"] .modal-aba-colab:hover { color: #ccc; }
+[data-tema="escuro"] .modal-aba-colab-ativa,
+[data-tema="escuro"] .modal-aba-colab-ativa:hover { color: #fff; }
+
+[data-tema="escuro"] .info-group label { color: #aaa; }
+[data-tema="escuro"] .info-group > span { background: #3d3d3d; border-color: transparent; }
+[data-tema="escuro"] .info-group input,
+[data-tema="escuro"] .info-group textarea,
+[data-tema="escuro"] .info-group select {
+    background: #3d3d3d;
+    border-color: #444;
+    color: #fff;
+}
+[data-tema="escuro"] .info-group input[type="date"] { color-scheme: dark; }
+[data-tema="escuro"] .checkbox-group { color: #ccc; }
+
+[data-tema="escuro"] #designar-cob-busca { background: #3d3d3d; border-color: #444; color: #fff; }
+[data-tema="escuro"] .cob-leg-item { color: #ccc; }
+[data-tema="escuro"] .designar-cob-cal-nav { color: #888; }
+[data-tema="escuro"] .designar-cob-cal-nav:hover { color: #fff; }
+[data-tema="escuro"] .gestor-cobertura-calendario-dia.fora-periodo,
+[data-tema="escuro"] .gestor-cobertura-calendario-dia.indisponivel { color: #4a4a4a; }
+[data-tema="escuro"] .gestor-cobertura-calendario-dia.pendente-pintura { border-color: #6a6a6a; color: #ccc; }
+[data-tema="escuro"] .gestor-cobertura-calendario-dia.range-inicio { box-shadow: 0 0 0 2px #fff inset; }
+[data-tema="escuro"] .cob-seg { background: #3d3d3d; border-color: transparent; color: #fff; }
+[data-tema="escuro"] .cob-seg:hover { background: #454545; }
+[data-tema="escuro"] .cob-seg-dias { color: #aaa; }
+[data-tema="escuro"] .cob-seg-pendente { border-color: #6a6a6a; color: #ccc; }
+[data-tema="escuro"] .cob-seg-x { background: #2c2c2c; color: #999; }
+
+[data-tema="escuro"] .dropdown-motivo-trigger { background: #3d3d3d; border-color: #444; color: #fff; }
+[data-tema="escuro"] .dropdown-motivo-trigger svg { color: #999; }
+[data-tema="escuro"] .dropdown-motivo-painel { background: #333; border-color: #444; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35); }
+[data-tema="escuro"] .dropdown-motivo-item { color: #ddd; }
+[data-tema="escuro"] .dropdown-motivo-item:hover, [data-tema="escuro"] .dropdown-motivo-item.foco { background: #3f3f3f; }
+[data-tema="escuro"] .dropdown-motivo-item.selecionado { background: rgba(0, 111, 115, 0.22); color: #fff; }
+[data-tema="escuro"] .dropdown-motivo-item.foco { outline-color: #5fc4c7; }
+[data-tema="escuro"] .calendario-dia-hoje { box-shadow: inset 0 0 0 1px #5fc4c7; }
+[data-tema="escuro"] .data-display-solic { background: #3d3d3d; border-color: #444; color: #666; }
+[data-tema="escuro"] .data-display-solic.preenchido { color: #fff; }
+
+[data-tema="escuro"] .add-resultados-busca { background: #232323; border-color: #444; }
+[data-tema="escuro"] .add-resultado-item { color: #eee; border-bottom-color: #333; }
+[data-tema="escuro"] .add-resultado-item:hover { background: #2f2f2f; }
+[data-tema="escuro"] .add-resultado-item.add-resultado-vazio { color: #999; }
+[data-tema="escuro"] .add-resultado-detalhe { color: #999; }
+[data-tema="escuro"] .add-resumo-nome { color: #fff; }
+
+[data-tema="escuro"] .info-preposto-sub { color: #999; }
+[data-tema="escuro"] .info-preposto-linha { border-bottom-color: #3a3a3a; }
+[data-tema="escuro"] .info-preposto-linha span:first-child { color: #999; }
+[data-tema="escuro"] .info-preposto-bloco { background: #3d3d3d; border-color: transparent; }
+[data-tema="escuro"] .info-preposto-secao { background: #3d3d3d; border-color: transparent; }
+[data-tema="escuro"] .info-preposto-secao .info-preposto-linha { border-bottom-color: #4a4a4a; }
+[data-tema="escuro"] .info-preposto-rotulo { color: #999; }
+[data-tema="escuro"] .info-preposto-pessoa-nome { color: #fff; }
+[data-tema="escuro"] .info-preposto-pessoa-matricula { color: #999; }
+[data-tema="escuro"] .info-preposto-periodo { color: #fff; }
+[data-tema="escuro"] .info-preposto-periodo span { color: #999; }
+[data-tema="escuro"] .info-preposto-vazio { color: #999; }
+[data-tema="escuro"] .info-preposto-quem { color: #fff; }
+[data-tema="escuro"] .observacao-preposto { background: #3a3220; border-color: #6b5520; }
+[data-tema="escuro"] .observacao-preposto svg,
+[data-tema="escuro"] .observacao-preposto-rotulo,
+[data-tema="escuro"] .icone-observacao-solic { color: #ffd27a; }
+[data-tema="escuro"] .observacao-preposto-texto { color: #f3dc9c; }
+[data-tema="escuro"] .contador-observacao { color: #999; }
+[data-tema="escuro"] .contador-observacao.excedido { color: #ff6b5b; }
+[data-tema="escuro"] .origem-solicitacao { color: #aaa; }
+[data-tema="escuro"] .origem-solicitacao svg { color: #888; }
+[data-tema="escuro"] .origem-solicitacao b { color: #f2f2f2; }
+[data-tema="escuro"] .info-preposto-outro-item { background: #3d3d3d; color: #fff; }
+[data-tema="escuro"] .info-preposto-outro-item .periodo { color: #999; }
+[data-tema="escuro"] #info-colab-cobertura-bloco { border-top-color: #4a4a4a !important; }
+[data-tema="escuro"] #info-colab-sem-cobertura { color: #999 !important; }
+
+[data-tema="escuro"] .modal-notificacao-content {
+    background-color: rgba(30, 34, 36, 0.82);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+}
+[data-tema="escuro"] .modal-notificacao-header { background: rgba(255, 255, 255, 0.03); border-bottom-color: rgba(255, 255, 255, 0.09); }
+[data-tema="escuro"] .modal-notificacao-titulo { color: #fff; }
+[data-tema="escuro"] .modal-notificacao-header .btn-fechar { color: rgba(255, 255, 255, 0.55); }
+[data-tema="escuro"] .modal-notificacao-header .btn-fechar:hover { color: #fff; }
+[data-tema="escuro"] .switch-container { color: #4fd1c5; }
+[data-tema="escuro"] .slider { background-color: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.25); }
+[data-tema="escuro"] .container-duplo::after { background: rgba(255, 255, 255, 0.18); }
+[data-tema="escuro"] .coluna-form,
+[data-tema="escuro"] .coluna-preview { background: rgba(255, 255, 255, 0.055); border-color: rgba(255, 255, 255, 0.1); }
+[data-tema="escuro"] .coluna-form h4,
+[data-tema="escuro"] .coluna-preview h4 { color: #4fd1c5; border-bottom-color: rgba(255, 255, 255, 0.1); }
+[data-tema="escuro"] .form-group label { color: rgba(255, 255, 255, 0.55); }
+[data-tema="escuro"] .coluna-preview-rotulo { color: rgba(255, 255, 255, 0.5); }
+[data-tema="escuro"] .input-padrao { background-color: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.16); color: #fff; }
+[data-tema="escuro"] .input-padrao::placeholder { color: rgba(255, 255, 255, 0.4); }
+[data-tema="escuro"] .input-padrao:focus { border-color: #4fd1c5; }
+[data-tema="escuro"] .notif-resultados-busca { background: #2c2c2c; border-color: rgba(255, 255, 255, 0.12); }
+[data-tema="escuro"] .notif-resultado-item { color: #eee; border-bottom-color: rgba(255, 255, 255, 0.08); }
+[data-tema="escuro"] .notif-resultado-item:hover { background: rgba(255, 255, 255, 0.06); }
+[data-tema="escuro"] .notif-resultado-item.notif-resultado-vazio { color: rgba(255, 255, 255, 0.4); }
+[data-tema="escuro"] .notif-resultado-detalhe { color: rgba(255, 255, 255, 0.45); }
+[data-tema="escuro"] .caixa-preview { background-color: rgba(0, 0, 0, 0.22); border-color: rgba(255, 255, 255, 0.1); color: #e6ecec; }
+[data-tema="escuro"] .tabela-editavel { color: #eee; }
+[data-tema="escuro"] .tabela-editavel td { border-color: rgba(255, 255, 255, 0.1); }
+[data-tema="escuro"] .tabela-editavel input { color: #eee; }
+[data-tema="escuro"] .tabela-editavel input:focus { outline-color: #4fd1c5; background-color: rgba(255, 255, 255, 0.08); }
+[data-tema="escuro"] #tabela-lista-container { background-color: rgba(0, 0, 0, 0.22) !important; border-color: rgba(255, 255, 255, 0.1) !important; }
+
+[data-tema="escuro"] .legenda-item { color: #ccc; }
+[data-tema="escuro"] .gestor-cobertura-calendario-mes { background: #232323; border-color: #444; }
+[data-tema="escuro"] .gestor-cobertura-calendario-titulo { color: #fff; }
+[data-tema="escuro"] .gestor-cobertura-calendario-dia-semana { color: #888; }
+/* So o dia comum: o pintado fica com o numero preto e o de fora do mes some, como no tema claro. */
+[data-tema="escuro"] .gestor-cobertura-calendario-dia:not(.fora-do-mes):not([class*="designado-"]) { color: #ccc; }
+
+/* colaboradores/funcionarios.html: caixas com estilo codificado no HTML (nao em classe); por ID e com !important porque inline style vence CSS normal. */
+[data-tema="escuro"] #input-capacitacao-display,
+[data-tema="escuro"] #input-previsto-desligamento-display,
+[data-tema="escuro"] #input-base-display {
+    background: #3d3d3d !important;
+    border-color: #444 !important;
+    color: #888 !important;
+}
+/* Icone de calendario: so pinta o que ja tem traco ou preenchimento no SVG (o contorno e fill="none"; pintar tudo de branco virava um bloco). */
+[data-tema="escuro"] #input-capacitacao-display svg [stroke],
+[data-tema="escuro"] #input-previsto-desligamento-display svg [stroke],
+[data-tema="escuro"] #input-base-display svg [stroke] { stroke: #fff !important; }
+[data-tema="escuro"] #input-capacitacao-display svg [fill],
+[data-tema="escuro"] #input-previsto-desligamento-display svg [fill],
+[data-tema="escuro"] #input-base-display svg [fill] { fill: #fff !important; }
+[data-tema="escuro"] #input-transferencia,
+[data-tema="escuro"] #input-base-contrato { background: #3d3d3d !important; border-color: #444 !important; color: #fff !important; }
+/* Busca de contrato da Nova Base: dica no mesmo cinza do "Selecione o periodo" logo abaixo. */
+#input-base-contrato::placeholder { color: #9a9a9a; }
+[data-tema="escuro"] #input-base-contrato::placeholder { color: #888; }
+/* Data escolhida no Previsto desligamento: escura no tema claro e branca no escuro ("Selecione uma data" recebe #888 pelo JS). */
+#input-previsto-desligamento-texto { color: #2b2b2b; }
+[data-tema="escuro"] #input-previsto-desligamento-texto { color: #fff; }
+[data-tema="escuro"] #container-desligamento { background: #3d3d3d !important; border-color: transparent !important; }
+[data-tema="escuro"] #campos-aviso { background: #444 !important; border-left-color: #E5CDF2 !important; }
+[data-tema="escuro"] #campos-transferencia { background: #444 !important; border-left-color: #eaf4fc !important; }
+
+/* ============================================================
+   TEMA ESCURO - ETAPA 2: BASE DO SITE (2026-09-24)
+   ============================================================
+   Feedback do usuario sobre a etapa 1 (acima): "ele so alterar a cor dos
+   paineis, ele deve alterar a cor de todo o site nao apenas dos paineis" -
+   pediu pra usar o SAF (agendar-ferias) de referencia, especificamente
+   porque la o modo escuro "muda a base de cores do fundo", nao so
+   componentes flutuantes.
+
+   Esta etapa cobre o CHROME BASE compartilhado por toda pagina que usa
+   este stylesheet: fundo da pagina (body/html), o cartao de tabela
+   (.tabela-visualizacao), toda celula (td) e seu hover, e a familia
+   completa do dropdown de filtro de coluna (.multi-select-dropdown e
+   tudo dentro dele) - juntos, isso e o que da 90% da area visivel em
+   CDV/Volantes/Intermitentes/Solicitacao/Previsao/Dashboard.
+
+   .hotbar-nav/.hotbar-util e thead th continuam SEM regra aqui de
+   proposito - ja sao teal em ambos os temas ("mantendo as cores
+   principais de verde", pedido explicito do usuario).
+
+   Ainda FORA desta etapa (proxima etapa futura): a pagina de admin
+   (usuarios.html - .admin-tabela/.centros-custo-*/.table-input/
+   .papel-select) e os paineis/cards que vivem dentro do <style> proprio
+   de dashboard.html/previsao.html - paginas com CSS local, nao neste
+   arquivo compartilhado. */
+[data-tema="escuro"] .conteudo-principal {
+    background: transparent;
+}
+
+/* Paleta em variaveis. Nao da pra declarar num :root/html por bug de parser do Chrome que descarta a primeira regra "html"/":root" deste arquivo; no body funciona igual.
+   --dt-bg = fundo da pagina (o mais escuro). --dt-surface = cartao de tabela/paineis (mais claro, "flutua"). --dt-surface-2 = sub-blocos dentro de paineis (busca, ordenar). */
+[data-tema="escuro"] body {
+    /* Paleta "Petroleo Escuro": mesma familia do verde/teal do site (#006f73), so mais escura. */
+    --dt-bg: #17272a;
+    --dt-surface: #223638;
+    --dt-surface-2: #2a4143;
+    --dt-border: #35494b;
+    --dt-text: #e3ecec;
+    --dt-text-muted: #90a5a7;
+    --dt-row-hover: #1f3c3f;
+    background-color: var(--dt-bg);
+}
+
+[data-tema="escuro"] .tabela-visualizacao {
+    background-color: var(--dt-surface);
+    border-color: var(--dt-border) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+}
+
+[data-tema="escuro"] td {
+    background-color: var(--dt-surface);
+    border-color: var(--dt-border);
+    color: var(--dt-text);
+}
+
+[data-tema="escuro"] tr:hover td,
+[data-tema="escuro"] #table-body tr:hover {
+    background-color: var(--dt-row-hover) !important;
+}
+
+[data-tema="escuro"] #table-body td.td-editavel {
+    background-color: var(--dt-surface) !important;
+    color: #fff !important;
+}
+
+/* Cartoes de contador (Cobrindo/Nao Cobrindo em funcionarios.html, Abertas/Fechadas/Nova em solicitacao.html; mesmo .solic-stat): com borda propria, senao quase somem no fundo escuro. */
+[data-tema="escuro"] .solic-stat {
+    background-color: var(--dt-surface);
+    border: 1px solid var(--dt-border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+[data-tema="escuro"] .solic-stat.ativo {
+    background-color: var(--dt-surface-2);
+}
+[data-tema="escuro"] .solic-stat .solic-stat-num {
+    color: var(--dt-text);
+}
+[data-tema="escuro"] .solic-stat .solic-stat-num.solic-stat-num-texto,
+[data-tema="escuro"] .solic-stat .solic-stat-lbl {
+    color: var(--dt-text-muted);
+}
+
+/* Mesmo destaque "respirando" de solicFechadaRespira, com amarelos escurecidos pra nao estourar sobre tabela escura. */
+[data-tema="escuro"] .solic-fechada-recente td,
+[data-tema="escuro"] .solic-aberta-cancelavel td {
+    animation-name: solicFechadaRespiraEscuro;
+}
+@keyframes solicFechadaRespiraEscuro {
+    0%, 100% { background-color: #3d3a1f; }
+    50% { background-color: #4a4522; }
+}
+[data-tema="escuro"] .solic-fechada-recente:hover td,
+[data-tema="escuro"] .solic-aberta-cancelavel:hover td {
+    background: #524c26 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    [data-tema="escuro"] .solic-fechada-recente td, [data-tema="escuro"] .solic-aberta-cancelavel td { animation: none; background: #4a4522; }
+}
+
+/* Dropdown de filtro de coluna (multi-select) - presente no cabecalho de
+   toda tabela do site, entao e tao "base" quanto a propria tabela. */
+[data-tema="escuro"] .multi-select-dropdown {
+    background: var(--dt-surface);
+    border-color: var(--dt-border);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+}
+[data-tema="escuro"] .sort-section {
+    background: var(--dt-surface-2);
+    border-bottom-color: var(--dt-border);
+}
+[data-tema="escuro"] .btn-sort {
+    background: var(--dt-surface);
+    border-color: var(--dt-border);
+    color: var(--dt-text);
+}
+[data-tema="escuro"] .btn-sort:hover {
+    background: var(--dt-row-hover);
+}
+[data-tema="escuro"] .search-box-container {
+    background: var(--dt-surface-2);
+    border-bottom-color: var(--dt-border);
+}
+[data-tema="escuro"] .filter-search-input {
+    background: var(--dt-surface);
+    border-color: var(--dt-border);
+    color: var(--dt-text);
+}
+[data-tema="escuro"] .multi-select-item,
+[data-tema="escuro"] .filtro-data-grupo-linha {
+    color: var(--dt-text);
+}
+[data-tema="escuro"] .multi-select-item:hover,
+[data-tema="escuro"] .filtro-data-grupo-linha:hover {
+    background-color: var(--dt-row-hover);
+}
+[data-tema="escuro"] .dropdown-controls,
+[data-tema="escuro"] .dropdown-aplicar-container {
+    background: var(--dt-surface-2);
+    border-bottom-color: var(--dt-border);
+}
+[data-tema="escuro"] .btn-mini { background: rgba(92, 198, 201, 0.14); color: #7fd6d8; }
+[data-tema="escuro"] .btn-mini:hover { background: rgba(92, 198, 201, 0.22); }
+[data-tema="escuro"] .dropdown-controls .btn-mini:last-child,
+[data-tema="escuro"] .btn-remover-tonal,
+[data-tema="escuro"] .btn-cancelar-tonal { background: rgba(231, 76, 60, 0.16); color: #ff9a8f; }
+[data-tema="escuro"] .dropdown-controls .btn-mini:last-child:hover,
+[data-tema="escuro"] .btn-remover-tonal:hover,
+[data-tema="escuro"] .btn-cancelar-tonal:hover { background: rgba(231, 76, 60, 0.24); color: #ff9a8f; }
+[data-tema="escuro"] .painel-pessoa,
+[data-tema="escuro"] .painel-troca,
+[data-tema="escuro"] .painel-opcao { background: #3a3a3a; color: #ddd; }
+[data-tema="escuro"] .painel-pessoa b,
+[data-tema="escuro"] .painel-troca dd { color: #fff; }
+[data-tema="escuro"] .painel-troca dt { color: #bdbdbd; }
+
+/* ============================================================
+   TEMA ESCURO - ETAPA 3: PAGINA DE ADMIN (usuarios.html, 2026-09-24)
+   ============================================================
+   Usuario aprovou a paleta "Petroleo Escuro" em funcionarios.html e
+   pediu pra aplicar em todas as paginas. .admin-tabela/.centros-custo-*/
+   .table-input/.papel-select ficaram de fora da etapa 2 (documentado la
+   como "proxima etapa") - cobertos agora, reusando os mesmos --dt-*
+   declarados em [data-tema="escuro"] body (etapa 2, acima). thead
+   continua teal, igual todo o resto do site.
+
+   [data-tema="escuro"] .admin-actions - regra "sacrificial": bug de
+   parser do Chrome (descoberto e confirmado 2x nesta mesma sessao, ver
+   comentario identico na ETAPA 2 acima) descarta silenciosamente a
+   PRIMEIRA regra CSS logo depois de um comentario grande como este -
+   sem ela, a regra de verdade seguinte (.admin-busca/.table-input/...)
+   simplesmente some do parser, sem erro nenhum. */
+[data-tema="escuro"] .admin-actions {
+    background: transparent;
+}
+[data-tema="escuro"] .admin-busca,
+[data-tema="escuro"] .table-input,
+[data-tema="escuro"] .papel-select,
+[data-tema="escuro"] .centros-custo-btn,
+[data-tema="escuro"] .centros-custo-painel-busca input {
+    background-color: var(--dt-surface);
+    border-color: var(--dt-border);
+    color: var(--dt-text);
+}
+[data-tema="escuro"] .admin-busca::placeholder,
+[data-tema="escuro"] .table-input::placeholder {
+    color: var(--dt-text-muted);
+}
+[data-tema="escuro"] .centros-custo-btn {
+    color: var(--dt-text-muted);
+}
+[data-tema="escuro"] .centros-custo-btn.preenchido {
+    color: var(--dt-text);
+}
+[data-tema="escuro"] .centros-custo-btn:disabled {
+    background-color: var(--dt-surface-2);
+}
+
+[data-tema="escuro"] .admin-tabela-wrapper {
+    background-color: var(--dt-surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+[data-tema="escuro"] .admin-tabela td {
+    background-color: var(--dt-surface);
+    border-bottom-color: var(--dt-border);
+    color: var(--dt-text);
+}
+[data-tema="escuro"] .admin-tabela tr:hover td {
+    background-color: var(--dt-row-hover);
+}
+[data-tema="escuro"] .admin-tabela-wrapper::-webkit-scrollbar-track {
+    background: var(--dt-surface-2);
+}
+[data-tema="escuro"] .admin-tabela-wrapper::-webkit-scrollbar-thumb {
+    background: var(--dt-border);
+}
+
+[data-tema="escuro"] .centros-custo-painel {
+    background-color: var(--dt-surface);
+    border-color: var(--dt-border);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+[data-tema="escuro"] .centros-custo-painel-busca {
+    border-bottom-color: var(--dt-border);
+}
+[data-tema="escuro"] .centros-custo-item {
+    color: var(--dt-text);
+}
+[data-tema="escuro"] .centros-custo-item:hover {
+    background-color: var(--dt-row-hover);
+}
+[data-tema="escuro"] .centros-custo-item:has(input:disabled) {
+    color: #5c6a6c;
+}
+[data-tema="escuro"] .centros-custo-item-todos {
+    background-color: var(--dt-row-hover);
+    border-color: var(--dt-border);
+}
+[data-tema="escuro"] .centros-custo-item-todos:hover {
+    background-color: var(--dt-surface-2);
+}
+
+[data-tema="escuro"] .perfil-chip-btn {
+    background-color: var(--dt-surface-2) !important;
+}
+/* Texto do chip de Perfil preenchido: branco (o negrito ja vem de .perfil-chip-btn), pois o teal #006f73 tem contraste baixo sobre o fundo escuro do chip. */
+[data-tema="escuro"] .perfil-chip-btn.preenchido {
+    color: #ffffff !important;
+}
+
+[data-tema="escuro"] .usuarios-cabecalho p {
+    color: var(--dt-text-muted);
+}
+
+/* Tabela de Volantes (Preposto, "quem esta cobrindo hoje"): ".tabela-volantes-preposto tbody td { color:#1f2933 }" (classe+elemento+elemento) vence o "[data-tema='escuro'] td" generico mesmo vindo antes;
+   precisa de regra igualmente especifica aqui. */
+[data-tema="escuro"] .tabela-volantes-preposto tbody td {
+    color: var(--dt-text);
+}
+[data-tema="escuro"] .tabela-volantes-preposto tbody tr:nth-child(even) {
+    background: var(--dt-surface-2);
+}
+[data-tema="escuro"] .tabela-volantes-preposto tbody tr:hover {
+    background: var(--dt-row-hover);
+}
+
+/* Gaveta de Vale Transporte (beneficios/bene-intermitente.html): no tema escuro o botao hamburguer (.btn-hamburguer span) fica quase invisivel e a gaveta (.sidebar) abre branca. */
+[data-tema="escuro"] body.pagina-intermitentes .btn-hamburguer span {
+    background-color: var(--dt-text);
+}
+[data-tema="escuro"] body.pagina-intermitentes .sidebar {
+    background-color: var(--dt-surface);
+    color: var(--dt-text);
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
+}
+[data-tema="escuro"] body.pagina-intermitentes .sidebar .menu-titulo {
+    border-bottom-color: var(--dt-border) !important;
+}
+[data-tema="escuro"] .tabela-menu {
+    border-color: var(--dt-border) !important;
+}
+[data-tema="escuro"] .tabela-menu th,
+[data-tema="escuro"] .tabela-menu td {
+    border-bottom-color: var(--dt-border) !important;
+}
+[data-tema="escuro"] .tabela-menu td {
+    color: var(--dt-text) !important;
+}
+
+/* Botoes que ficavam brancos no tema escuro: pilula de contador/adicionar (CDV), botao de designar cobertura (Solicitacao), seletor de mes/periodo e cartao de indicadores (Previsao/PFM). */
+[data-tema="escuro"] .toolbar-flutuante {
+    background-color: var(--dt-surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+[data-tema="escuro"] .toolbar-contador { color: var(--dt-text-muted); }
+[data-tema="escuro"] .toolbar-contador b { color: var(--dt-text); }
+[data-tema="escuro"] .toolbar-separador { background-color: var(--dt-border); }
+
+[data-tema="escuro"] .btn-designar-cobertura {
+    background: var(--dt-surface-2);
+    border-color: var(--dt-border);
+    color: var(--dt-text-muted);
+}
+
+[data-tema="escuro"] .fopag-mes-pill {
+    background-color: var(--dt-surface);
+    border-color: var(--dt-border);
+    color: var(--dt-text);
+}
+[data-tema="escuro"] .fopag-mes-pill svg { color: var(--dt-text-muted); }
+[data-tema="escuro"] .fopag-mes-dropdown {
+    background-color: var(--dt-surface);
+    border-color: var(--dt-border);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+[data-tema="escuro"] .fopag-mes-item { color: var(--dt-text); }
+[data-tema="escuro"] .fopag-mes-item:hover { background-color: var(--dt-surface-2); }
+/* #4fd1c5 - mesmo teal claro ja usado noutros textos clicaveis sobre fundo
+   escuro (ver .perfil-papel-clicavel acima); o #006f73 normal do tema claro
+   fica com contraste baixo demais sobre o fundo escuro. */
+[data-tema="escuro"] .fopag-mes-item.ativo { background-color: rgba(0, 111, 115, 0.3); color: #4fd1c5; }
+[data-tema="escuro"] .fopag-mes-dropdown-titulo { color: var(--dt-text-muted); border-bottom-color: var(--dt-border); }
+[data-tema="escuro"] .fopag-mes-dropdown-titulo.clicavel { color: #4fd1c5; }
+
+[data-tema="escuro"] .fopag-indicadores {
+    background-color: var(--dt-surface);
+    border-color: var(--dt-border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+[data-tema="escuro"] .fopag-indicador { border-left-color: var(--dt-border); }
+[data-tema="escuro"] .fopag-indicador:hover { background-color: var(--dt-surface-2); }
+[data-tema="escuro"] .fopag-indicador.ativo { background-color: var(--dt-surface-2); }
+[data-tema="escuro"] .fopag-indicador-num { color: var(--dt-text); }
+[data-tema="escuro"] .fopag-indicador-lbl { color: var(--dt-text-muted); }

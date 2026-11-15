@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="96x96" href="frontend/img/favicon.png">
+    <link rel="stylesheet" href="frontend/style.css?v=b3668feb">
+
+    <title>Logs — CGV</title>
+
+    <script src="backend/filtro.js?v=fab90393"></script>
+    <script src="backend/hostinger-storage.js?v=2803bcf0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        // So Administrador ve esta tela (o servidor ja recusa, verificarSessaoAdministrador em logs.php); isto so evita que um RH veja a tela montada por um instante.
+        // Igual a guarda de usuarios.html, mas com souAdministrador() (nao souRH()).
+        if (window.self === window.top && (typeof souAdministrador !== 'function' || !souAdministrador())) {
+            window.location.href = 'colaboradores/funcionarios.html';
+        }
+    </script>
+    <style>
+        .logs-filtros { padding: 16px 2% 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .logs-busca {
+            flex: 1; min-width: 220px; max-width: 320px; display: flex; align-items: center; gap: 8px;
+            border: 1px solid var(--dt-border); border-radius: 8px; padding: 9px 12px; background: var(--dt-surface);
+        }
+        .logs-busca svg { flex-shrink: 0; color: #8a9298; }
+        .logs-busca input {
+            border: none; outline: none; background: none; font-size: 13px; color: var(--dt-text);
+            width: 100%; font-family: inherit;
+        }
+        .logs-filtro-select {
+            border: 1px solid var(--dt-border); background: var(--dt-surface); color: var(--dt-text-muted);
+            border-radius: 8px; padding: 9px 12px; font-size: 12.5px; font-weight: 400; font-family: inherit; cursor: pointer;
+        }
+        /* Caixa unica clicavel que abre o calendario de intervalo (#logs-calendario-popup, mesmo componente de funcionarios.html/solicitacao.html/dashboard.html). */
+        .logs-periodo-display {
+            width: 190px; height: 39px; box-sizing: border-box; display: flex; align-items: center;
+            justify-content: space-between; gap: 8px; padding: 0 12px; border: 1px solid var(--dt-border);
+            border-radius: 8px; background: var(--dt-surface); color: var(--dt-text-muted); font-size: 12.5px;
+            font-family: inherit; cursor: pointer;
+        }
+        .logs-periodo-display.preenchido { color: var(--dt-text); }
+        .logs-periodo-display svg { flex-shrink: 0; }
+
+        .logs-tabela-wrap {
+            /* Topo da tabela a 237px da viewport (hotbar fixo + .logs-filtros + margem); 100vh - 237px - 40px de respiro preenche a tela. */
+            margin: 0 2% 20px; overflow-y: auto; max-height: calc(100vh - 277px);
+            border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+        }
+        /* border-collapse:collapse!important e "td{border:1px solid...}" sao globais (style.css); sem "!important" aqui devolveriam a grade vertical.
+           Mesmo tratamento de ".tabela-refinada" (frontend/style.css): so a linha horizontal fina entre linhas. */
+        .logs-tabela { width: 100%; border-collapse: separate !important; border-spacing: 0; font-size: 12.5px; background: var(--dt-surface); }
+        .logs-tabela thead th {
+            position: sticky; top: 0; background: #006f73; color: #fff; font-size: 10.5px;
+            text-transform: uppercase; letter-spacing: .04em; text-align: left; padding: 10px 14px; font-weight: 700;
+            border: none !important;
+        }
+        .logs-tabela tbody td {
+            padding: 10px 14px; color: var(--dt-text); background: var(--dt-surface);
+            border-left: none !important; border-right: none !important; border-top: none !important;
+            border-bottom: 1px solid var(--dt-border) !important;
+        }
+        /* Data/Hora, Usuario, Perfil e Acao centralizadas (cabecalho e corpo); Detalhes fica a esquerda. */
+        .logs-tabela th:nth-child(1), .logs-tabela td:nth-child(1),
+        .logs-tabela th:nth-child(2), .logs-tabela td:nth-child(2),
+        .logs-tabela th:nth-child(3), .logs-tabela td:nth-child(3),
+        .logs-tabela th:nth-child(4), .logs-tabela td:nth-child(4) {
+            text-align: center;
+        }
+        .logs-tabela th:nth-child(5), .logs-tabela td:nth-child(5) {
+            text-align: left;
+        }
+        /* Funil de filtro por coluna (Usuario/Perfil/Acao/Detalhes; toggleDropdown/confirmarFiltro em backend/filtro.js): grade de 3 colunas com espacador do tamanho do funil
+           no lado oposto, pro rotulo centralizar (como body.pagina-solicitacao .th-content em frontend/style.css). Detalhes fica de fora, rotulo a esquerda. */
+        .pagina-logs .logs-tabela th .th-content {
+            display: grid; grid-template-columns: 16px 1fr 16px; align-items: center; gap: 0;
+        }
+        .pagina-logs .logs-tabela th .th-content > span { grid-column: 2; text-align: center; }
+        .pagina-logs .logs-tabela th .th-content .multi-select-container { grid-column: 3; justify-self: end; }
+        .pagina-logs .logs-tabela th:nth-child(5) .th-content {
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .pagina-logs .logs-tabela th:nth-child(5) .th-content > span { text-align: left; }
+        /* O estado .tem-filtro (style.css) pinta o icone de #006f73, a mesma cor do cabecalho aqui, e o funil sumia; cor de destaque propria, visivel sobre o teal. */
+        .pagina-logs .logs-tabela .multi-select-container.tem-filtro .multi-select-button {
+            color: #ffd166 !important;
+        }
+        .logs-chip { display: inline-flex; align-items: center; }
+        .logs-vazio { text-align: center; padding: 50px 20px; color: var(--dt-text-muted); font-size: 13px; }
+    </style>
+</head>
+
+<body class="pagina-logs">
+
+    <nav class="hotbar">
+        <div class="hotbar-nav">
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-colab')">COLABORADORES</button>
+            <div class="hotbar-dropdown-content" id="drop-colab">
+                <a href="colaboradores/funcionarios.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2"/><path d="M5.8 15.5c.5-1.6 1.6-2.4 2.7-2.4s2.2.8 2.7 2.4"/><path d="M13.5 9.5h5M13.5 13h5"/></svg><div class="item-textos"><b>Funcionarios</b><span class="item-desc">Colaboradores da minha gestao</span></div></a>
+                <a href="coberturas/dashboard.html" class="item-premium" id="item-dashboard-gestor" style="display:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.3"/></svg><div class="item-textos"><b>Dashboard</b><span class="item-desc">Indicadores e visao geral da equipe</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" id="item-localizacao-ponto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.7 7-12.2A7 7 0 1 0 5 8.8C5 14.3 12 21 12 21Z"/><circle cx="12" cy="8.7" r="2.4"/></svg><div class="item-textos"><b>Localizacao - Ponto</b><span class="item-desc">Local e ponto do colaborador</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-cob')">COBERTURAS</button>
+            <div class="hotbar-dropdown-content" id="drop-cob">
+                <a href="coberturas/solicitacao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4"/><path d="M9.3 12.2h5.4M9.3 15.6h5.4M9.3 8.8h2"/></svg><div class="item-textos"><b>Solicitacoes</b><span class="item-desc">Pedidos de cobertura</span></div></a>
+                <a href="coberturas/previsao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 6h6v6"/></svg><div class="item-textos"><b>Previsao</b><span class="item-desc">Projecao e historico de cobertura de ferias</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" onclick="abrirModalNotificacao()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2a5 5 0 0 0-5 5v3.3c0 .9-.35 1.75-1 2.4l-.8.8h13.6l-.8-.8c-.65-.65-1-1.5-1-2.4V8.2a5 5 0 0 0-5-5Z"/><path d="M9.6 18.2a2.4 2.4 0 0 0 4.8 0"/></svg><div class="item-textos"><b>Notificacao</b><span class="item-desc">Avisar responsavel</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-fopag')">FOPAG</button>
+            <div class="hotbar-dropdown-content" id="drop-fopag">
+                <a href="fopag/pfm-volantes.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Volantes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+                <a href="fopag/pfm-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-ben')">BENEFICIOS</button>
+            <div class="hotbar-dropdown-content" id="drop-ben">
+                <a href="beneficios/bene-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 2.8v4M16 2.8v4"/><path d="M3.5 9.8h17"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Beneficios do intermitente</span></div></a>            </div>
+        </div>
+        </div>
+        <div class="hotbar-util">
+            <button class="btn-sino" onclick="toggleNotificacoes()">
+                🔔<div class="badge-notificacao" id="badge-sino" style="display: none;">0</div>
+            </button>
+        </div>
+    </nav>
+
+    <div class="painel-notificacoes" id="painel-notificacoes">
+        <div class="painel-header">
+            <h3>Alertas</h3>
+        </div>
+        <div class="lista-notificacoes" id="lista-notificacoes">
+            <div class="notificacao-vazia">Nenhum alerta.</div>
+        </div>
+    </div>
+
+    <div class="conteudo-principal">
+
+        <div class="logs-filtros">
+            <div class="logs-busca">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="text" id="logs-busca-usuario" placeholder="Buscar por usuario..." autocomplete="off" oninput="agendarRecarregarLogs()">
+            </div>
+            <select id="logs-filtro-papel" class="logs-filtro-select" onchange="carregarLogs()">
+                <option value="">TODOS</option>
+                <option value="rh">RH</option>
+                <option value="administrador">ADMIN</option>
+                <option value="gestor">GESTOR</option>
+                <option value="preposto">PREPOSTO</option>
+            </select>
+            <div class="logs-periodo-display" id="logs-periodo-display" onclick="abrirCalendarioLogs(event)">
+                <span id="logs-periodo-texto">PERIODO</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+            </div>
+            <div style="flex:1"></div>
+            <button class="btn-arquivo" onclick="exportarLogsPlanilha()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7.5 8.5 12 4l4.5 4.5"/><path d="M5 19.5h14"/></svg>
+                Exportar planilha
+            </button>
+        </div>
+
+        <!-- Calendario de intervalo (como em funcionarios.html/solicitacao.html/dashboard.html): 1 clique define o inicio, o 2o define o fim e fecha; sempre calendario-modo-range (ver abrirCalendarioLogs). -->
+        <div id="logs-calendario-popup" class="calendario-popup calendario-modo-range">
+            <div class="calendario-header">
+                <button type="button" class="calendario-nav" onclick="calendarioLogsMudarMes(-1)">‹</button>
+                <span id="logs-calendario-titulo" class="calendario-titulo"></span>
+                <button type="button" class="calendario-nav" onclick="calendarioLogsMudarMes(1)">›</button>
+            </div>
+            <div class="calendario-semana">
+                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+            </div>
+            <div id="logs-calendario-grade" class="calendario-grade"></div>
+        </div>
+
+        <div class="logs-tabela-wrap">
+            <table class="logs-tabela">
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>
+                            <div class="th-content">
+                                <span>Usuario</span>
+                                <div class="multi-select-container">
+                                    <div class="multi-select-button" onclick="toggleDropdown('USUARIO')" title="Filtrar">
+                                        <span id="label-USUARIO" class="th-filtro-label-oculto">Todos</span>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16L14 13v6l-4 2v-8L4 5z"/></svg>
+                                    </div>
+                                    <div id="dropdown-USUARIO" class="multi-select-dropdown">
+                                        <div class="search-box-container"><input type="text" class="filter-search-input" placeholder="Buscar..." onkeyup="filtrarListaInterna('USUARIO', this.value)"></div>
+                                        <div class="dropdown-controls">
+                                            <button class="btn-mini" onclick="marcarTodos('USUARIO', true)">Todos</button>
+                                            <button class="btn-mini" onclick="marcarTodos('USUARIO', false)">Limpar</button>
+                                        </div>
+                                        <div id="items-USUARIO" class="items-list"></div>
+                                        <div class="dropdown-aplicar-container"><button class="btn-aplicar-filtro" onclick="confirmarFiltro('USUARIO')">Aplicar</button></div>
+                                        <div class="filtro-resize-handle" title="Arraste para redimensionar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </th>
+                        <th>
+                            <div class="th-content">
+                                <span>Perfil</span>
+                                <div class="multi-select-container">
+                                    <div class="multi-select-button" onclick="toggleDropdown('PERFIL')" title="Filtrar">
+                                        <span id="label-PERFIL" class="th-filtro-label-oculto">Todos</span>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16L14 13v6l-4 2v-8L4 5z"/></svg>
+                                    </div>
+                                    <div id="dropdown-PERFIL" class="multi-select-dropdown">
+                                        <div class="search-box-container"><input type="text" class="filter-search-input" placeholder="Buscar..." onkeyup="filtrarListaInterna('PERFIL', this.value)"></div>
+                                        <div class="dropdown-controls">
+                                            <button class="btn-mini" onclick="marcarTodos('PERFIL', true)">Todos</button>
+                                            <button class="btn-mini" onclick="marcarTodos('PERFIL', false)">Limpar</button>
+                                        </div>
+                                        <div id="items-PERFIL" class="items-list"></div>
+                                        <div class="dropdown-aplicar-container"><button class="btn-aplicar-filtro" onclick="confirmarFiltro('PERFIL')">Aplicar</button></div>
+                                        <div class="filtro-resize-handle" title="Arraste para redimensionar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </th>
+                        <th>
+                            <div class="th-content">
+                                <span>Acao</span>
+                                <div class="multi-select-container">
+                                    <div class="multi-select-button" onclick="toggleDropdown('ACAO')" title="Filtrar">
+                                        <span id="label-ACAO" class="th-filtro-label-oculto">Todos</span>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16L14 13v6l-4 2v-8L4 5z"/></svg>
+                                    </div>
+                                    <div id="dropdown-ACAO" class="multi-select-dropdown">
+                                        <div class="search-box-container"><input type="text" class="filter-search-input" placeholder="Buscar..." onkeyup="filtrarListaInterna('ACAO', this.value)"></div>
+                                        <div class="dropdown-controls">
+                                            <button class="btn-mini" onclick="marcarTodos('ACAO', true)">Todos</button>
+                                            <button class="btn-mini" onclick="marcarTodos('ACAO', false)">Limpar</button>
+                                        </div>
+                                        <div id="items-ACAO" class="items-list"></div>
+                                        <div class="dropdown-aplicar-container"><button class="btn-aplicar-filtro" onclick="confirmarFiltro('ACAO')">Aplicar</button></div>
+                                        <div class="filtro-resize-handle" title="Arraste para redimensionar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </th>
+                        <th>
+                            <div class="th-content">
+                                <span>Detalhes</span>
+                                <div class="multi-select-container">
+                                    <div class="multi-select-button" onclick="toggleDropdown('DETALHES')" title="Filtrar">
+                                        <span id="label-DETALHES" class="th-filtro-label-oculto">Todos</span>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16L14 13v6l-4 2v-8L4 5z"/></svg>
+                                    </div>
+                                    <div id="dropdown-DETALHES" class="multi-select-dropdown">
+                                        <div class="search-box-container"><input type="text" class="filter-search-input" placeholder="Buscar..." onkeyup="filtrarListaInterna('DETALHES', this.value)"></div>
+                                        <div class="dropdown-controls">
+                                            <button class="btn-mini" onclick="marcarTodos('DETALHES', true)">Todos</button>
+                                            <button class="btn-mini" onclick="marcarTodos('DETALHES', false)">Limpar</button>
+                                        </div>
+                                        <div id="items-DETALHES" class="items-list"></div>
+                                        <div class="dropdown-aplicar-container"><button class="btn-aplicar-filtro" onclick="confirmarFiltro('DETALHES')">Aplicar</button></div>
+                                        <div class="filtro-resize-handle" title="Arraste para redimensionar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="logs-tbody">
+                    <tr><td colspan="5" class="logs-vazio">Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script>
+        // Mesma paleta do card "Solicitacoes por motivo" (coberturas/dashboard.html); so distingue visualmente o tipo de acao no chip.
+        const CORES_ACAO = {
+            login: '#8c8c8c',
+            alternar_perfil: '#8c8c8c',
+            remover: '#e74c3c',
+            desfazer_lote: '#e74c3c',
+            gravar_lote: '#4658c3',
+            designar_cobertura_solicitacao: '#4658c3',
+            ausencia_de_cobertura: '#e74c3c',
+            salvar_base: '#27ae60',
+            remover_base: '#e74c3c',
+            confirmar_substituto_desligamento: '#27ae60',
+            confirmar_substituto_afastamento: '#27ae60',
+            descartar_candidato_desligamento: '#5b5375',
+            descartar_candidato_afastamento: '#5b5375',
+            definir_fim_manual_desligamento: '#27ae60',
+            definir_fim_manual_afastamento: '#27ae60',
+        };
+        const PAPEL_ROTULO = { rh: 'RH', administrador: 'ADMIN', gestor: 'GESTOR', preposto: 'PREPOSTO' };
+
+        // Abrir/cancelar solicitacao tem uma acao por motivo (abrir_solicitacao_falta, cancelar_solicitacao_atestado...,
+        // registrarAuditoriaSolicitacao em db.php): a cor vem do prefixo.
+        function corAcao(acao) {
+            const a = String(acao || '');
+            if (CORES_ACAO[a]) return CORES_ACAO[a];
+            if (a.startsWith('cancelar_solicitacao_') || a === 'reabrir_cobertura_volante_desligado') return '#e74c3c';
+            if (a.startsWith('abrir_solicitacao_')) return '#f08231';
+            return '#006f73';
+        }
+
+        // Primeira letra maiuscula, resto minusculo (colunas Acao e Detalhes usam o mesmo modelo de texto).
+        function primeiraMaiuscula(texto) {
+            const s = String(texto || '');
+            return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+        }
+
+        function rotuloAcao(acao) {
+            return primeiraMaiuscula(String(acao || '').replaceAll('_', ' '));
+        }
+
+        function formatarDataHoraLog(em) {
+            // "em" vem do MySQL como "AAAA-MM-DD HH:MM:SS"
+            const [data, hora] = String(em).split(' ');
+            const [ano, mes, dia] = data.split('-');
+            return `${dia}/${mes} ${(hora || '').slice(0, 5)}`;
+        }
+
+        function isoParaBrLogs(iso) {
+            if (!iso) return '';
+            const [ano, mes, dia] = iso.split('-');
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        // ---- Calendario de periodo (intervalo unico, ver #logs-calendario-popup) ----
+        let calLogsMesAtual = new Date();
+        let calLogsRangeInicio = null;
+        let calLogsRangeFim = null;
+
+        function abrirCalendarioLogs(evento) {
+            const popup = document.getElementById('logs-calendario-popup');
+            calLogsMesAtual = calLogsRangeInicio ? new Date(calLogsRangeInicio + 'T00:00:00') : new Date();
+            renderizarCalendarioLogs();
+
+            const rect = evento.currentTarget.getBoundingClientRect();
+            const larguraPopup = 300;
+            let left = rect.left;
+            if (left + larguraPopup > window.innerWidth) left = window.innerWidth - larguraPopup - 8;
+            if (left < 8) left = 8;
+            popup.style.left = left + 'px';
+            popup.style.top = (rect.bottom + 6) + 'px';
+            popup.classList.add('show');
+        }
+
+        function fecharCalendarioLogs() {
+            document.getElementById('logs-calendario-popup').classList.remove('show');
+        }
+
+        function calendarioLogsMudarMes(delta) {
+            calLogsMesAtual.setMonth(calLogsMesAtual.getMonth() + delta);
+            renderizarCalendarioLogs();
+        }
+
+        function renderizarCalendarioLogs() {
+            const meses = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
+                            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            const ano = calLogsMesAtual.getFullYear();
+            const mes = calLogsMesAtual.getMonth();
+            document.getElementById('logs-calendario-titulo').textContent = `${meses[mes]} ${ano}`;
+
+            const primeiroDiaMes = new Date(ano, mes, 1);
+            const offset = primeiroDiaMes.getDay();
+            const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+            const diasNoMesAnterior = new Date(ano, mes, 0).getDate();
+            const totalCelulas = Math.ceil((offset + diasNoMes) / 7) * 7;
+
+            const grade = document.getElementById('logs-calendario-grade');
+            grade.innerHTML = '';
+
+            for (let i = 0; i < totalCelulas; i++) {
+                const numeroDia = i - offset + 1;
+                let diaData, dentroDoMes = true;
+                if (numeroDia < 1) {
+                    diaData = new Date(ano, mes - 1, diasNoMesAnterior + numeroDia);
+                    dentroDoMes = false;
+                } else if (numeroDia > diasNoMes) {
+                    diaData = new Date(ano, mes + 1, numeroDia - diasNoMes);
+                    dentroDoMes = false;
+                } else {
+                    diaData = new Date(ano, mes, numeroDia);
+                }
+                const isoDia = `${diaData.getFullYear()}-${String(diaData.getMonth() + 1).padStart(2, '0')}-${String(diaData.getDate()).padStart(2, '0')}`;
+
+                const div = document.createElement('div');
+                div.className = 'calendario-dia';
+                div.textContent = diaData.getDate();
+
+                if (!dentroDoMes) {
+                    div.classList.add('calendario-dia-fora');
+                } else {
+                    if (isoDia === calLogsRangeInicio || isoDia === calLogsRangeFim) {
+                        div.classList.add('calendario-dia-selecionado', 'calendario-dia-extremidade');
+                    } else if (calLogsRangeInicio && calLogsRangeFim && isoDia > calLogsRangeInicio && isoDia < calLogsRangeFim) {
+                        div.classList.add('calendario-dia-no-intervalo');
+                    }
+                    div.onclick = () => selecionarDiaRangeLogs(isoDia);
+                }
+                grade.appendChild(div);
+            }
+        }
+
+        function selecionarDiaRangeLogs(isoDia) {
+            if (!calLogsRangeInicio || calLogsRangeFim) {
+                calLogsRangeInicio = isoDia;
+                calLogsRangeFim = null;
+                renderizarCalendarioLogs();
+                return;
+            }
+            let inicio = calLogsRangeInicio, fim = isoDia;
+            if (fim < inicio) { const tmp = inicio; inicio = fim; fim = tmp; }
+            calLogsRangeInicio = inicio;
+            calLogsRangeFim = fim;
+
+            const display = document.getElementById('logs-periodo-display');
+            display.classList.add('preenchido');
+            document.getElementById('logs-periodo-texto').textContent = `${isoParaBrLogs(inicio)} – ${isoParaBrLogs(fim)}`;
+
+            fecharCalendarioLogs();
+            carregarLogs();
+        }
+
+        document.addEventListener('click', function (e) {
+            const popup = document.getElementById('logs-calendario-popup');
+            if (!popup.classList.contains('show')) return;
+            if (popup.contains(e.target)) return;
+            if (e.target.closest && e.target.closest('#logs-periodo-display')) return;
+            fecharCalendarioLogs();
+        }, true);
+
+        let ultimosLogsCarregados = [];
+        let linhasFiltradasLogs = [];
+        let timeoutBuscaLogs = null;
+
+        // Filtro por coluna (funil no cabecalho): mesmo motor generico de funcionarios.html (backend/filtro.js); "filtrosAtivos" e o nome fixo que essas funcoes esperam no escopo global.
+        let filtrosAtivos = { USUARIO: [], PERFIL: [], ACAO: [], DETALHES: [] };
+
+        // Extrai de uma linha crua do servidor o texto exibido na coluna (renderizarLogs); e contra ele que o filtro compara.
+        const COLUNAS_FILTRO_LOGS = {
+            USUARIO: l => l.usuario || '-',
+            PERFIL: l => PAPEL_ROTULO[l.papel] || l.papel || '-',
+            ACAO: l => rotuloAcao(l.acao),
+            DETALHES: l => primeiraMaiuscula(l.detalhe_completo || '-'),
+        };
+
+        function resetarFiltrosColunaLogs() {
+            Object.keys(filtrosAtivos).forEach(col => filtrosAtivos[col] = []);
+        }
+
+        // Chamada pelo confirmarFiltro() generico (backend/filtro.js) e apos cada carga: filtra o que ja esta em memoria (ultimosLogsCarregados), sem nova ida ao banco.
+        function aplicarLogica() {
+            let resultado = [...ultimosLogsCarregados];
+            Object.keys(filtrosAtivos).forEach(col => {
+                if (filtrosAtivos[col].length > 0) {
+                    const extrair = COLUNAS_FILTRO_LOGS[col];
+                    resultado = resultado.filter(l => filtrosAtivos[col].includes(extrair(l)));
+                }
+            });
+            linhasFiltradasLogs = resultado;
+            renderizarLogs(resultado);
+            atualizarDropdownsLogs();
+        }
+
+        // Reconstroi as opcoes de cada funil com contagem cruzada (refletem os OUTROS filtros, como no Excel) e atualiza o rotulo/estado "tem-filtro".
+        function atualizarDropdownsLogs() {
+            Object.keys(filtrosAtivos).forEach(col => {
+                const container = document.getElementById(`items-${col}`);
+                if (!container) return;
+
+                let base = [...ultimosLogsCarregados];
+                Object.keys(filtrosAtivos).forEach(c => {
+                    if (c !== col && filtrosAtivos[c].length > 0) {
+                        const extrairC = COLUNAS_FILTRO_LOGS[c];
+                        base = base.filter(l => filtrosAtivos[c].includes(extrairC(l)));
+                    }
+                });
+
+                const extrair = COLUNAS_FILTRO_LOGS[col];
+                const valoresUnicos = [...new Set(base.map(extrair))]
+                    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                renderizarListaFiltro(col, valoresUnicos, container);
+
+                const label = document.getElementById(`label-${col}`);
+                const qtd = filtrosAtivos[col].length;
+                label.innerText = qtd === 0 ? 'Todos' : (qtd === 1 ? filtrosAtivos[col][0] : `${qtd} selecionados`);
+                label.closest('.multi-select-container').classList.toggle('tem-filtro', qtd > 0);
+            });
+        }
+
+        // Debounce (400ms) so na busca por texto - os outros filtros
+        // (select/date) já disparam direto no onchange, sem digitação.
+        function agendarRecarregarLogs() {
+            clearTimeout(timeoutBuscaLogs);
+            timeoutBuscaLogs = setTimeout(carregarLogs, 400);
+        }
+
+        // Sem periodo selecionado a tabela fica vazia (evita carregar milhares de linhas de auditoria ao abrir a pagina).
+        async function carregarLogs() {
+            const tbody = document.getElementById('logs-tbody');
+            if (!calLogsRangeInicio || !calLogsRangeFim) {
+                ultimosLogsCarregados = [];
+                linhasFiltradasLogs = [];
+                resetarFiltrosColunaLogs();
+                tbody.innerHTML = '';
+                atualizarDropdownsLogs();
+                return;
+            }
+
+            const usuario = document.getElementById('logs-busca-usuario').value.trim();
+            const papel = document.getElementById('logs-filtro-papel').value;
+            const dataInicio = isoParaBrLogs(calLogsRangeInicio);
+            const dataFim = isoParaBrLogs(calLogsRangeFim);
+
+            // Notificacao lateral (spinner) em vez de "Carregando..." na tabela (mostrarToastProgresso, backend/filtro.js).
+            const toastCarga = mostrarToastProgresso('Carregando logs...');
+            try {
+                const linhas = await dbLogsListar(usuario, papel, dataInicio, dataFim);
+                ultimosLogsCarregados = linhas;
+                resetarFiltrosColunaLogs();
+                aplicarLogica();
+                finalizarToastProgresso(toastCarga, 'Logs atualizados.', '#27ae60', 1200);
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="5" class="logs-vazio">${escapeHtml(e.message || 'Erro ao carregar os logs.')}</td></tr>`;
+                finalizarToastProgresso(toastCarga, 'Erro ao carregar os logs.', '#e74c3c', 4000);
+            }
+        }
+
+        function renderizarLogs(linhas) {
+            const tbody = document.getElementById('logs-tbody');
+            if (!linhas || linhas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="logs-vazio">Nenhum registro nesse filtro.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = linhas.map(l => {
+                const cor = corAcao(l.acao);
+                const detalhe = primeiraMaiuscula(l.detalhe_completo || '-');
+                return `<tr>
+                    <td style="white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--dt-text-muted)">${formatarDataHoraLog(l.em)}</td>
+                    <td style="color:var(--dt-text-muted)">${escapeHtml(l.usuario || '-')}</td>
+                    <td style="color:var(--dt-text-muted)">${escapeHtml(PAPEL_ROTULO[l.papel] || l.papel || '-')}</td>
+                    <td><span class="logs-chip" style="color:${cor}">${escapeHtml(rotuloAcao(l.acao))}</span></td>
+                    <td style="color:var(--dt-text-muted)">${escapeHtml(detalhe)}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function exportarLogsPlanilha() {
+            if (linhasFiltradasLogs.length === 0) {
+                mostrarToast('Nenhum registro pra exportar.', '#e74c3c');
+                return;
+            }
+            const linhasExcel = linhasFiltradasLogs.map(l => ({
+                'DATA/HORA': l.em,
+                'USUARIO': l.usuario || '',
+                'PERFIL': PAPEL_ROTULO[l.papel] || l.papel || '',
+                'ACAO': rotuloAcao(l.acao),
+                'DETALHES': l.detalhe_completo || '',
+            }));
+            const livro = XLSX.utils.book_new();
+            const sheet = XLSX.utils.json_to_sheet(linhasExcel);
+            XLSX.utils.book_append_sheet(livro, sheet, 'LOGS');
+            const agora = new Date();
+            const dataArq = `${agora.getFullYear()}${String(agora.getMonth() + 1).padStart(2, '0')}${String(agora.getDate()).padStart(2, '0')}`;
+            XLSX.writeFile(livro, `Logs_Sistema_${dataArq}.xlsx`);
+        }
+
+        carregarLogs();
+    </script>
+
+</body>
+</html>

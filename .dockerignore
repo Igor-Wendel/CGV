@@ -1,0 +1,71 @@
+# O Dockerfile faz "COPY . .": sem este arquivo, credenciais reais iriam para uma camada da
+# imagem ("docker save"/"docker history" as expoem, mesmo com o .htaccess bloqueando o HTTP).
+# Mesmo raciocinio do .gitignore, mas para a imagem.
+
+# ============================================================
+# Credenciais reais - nunca na imagem.
+# ============================================================
+.env
+backend/api/config.php
+backend/api/config.local.php
+
+# ============================================================
+# Dumps do banco (ferramentas/backup-banco.php) - trazem dados de folha e
+# hashes de senha, mesmo raciocinio do .gitignore.
+# ============================================================
+backups/
+
+# ============================================================
+# Metadados de controle de versao e workspaces isolados - nao sao usados em
+# runtime, so aumentam o tamanho da imagem.
+# ============================================================
+.git
+.gitignore
+.worktrees
+
+# ============================================================
+# Documentacao de processo/planejamento (specs, planos, skills usados
+# durante o desenvolvimento) - nao e codigo de aplicacao.
+# ============================================================
+docs/
+.superpowers/
+
+# ============================================================
+# Sistema operacional / editores
+# ============================================================
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# ============================================================
+# Temporarios / logs
+# ============================================================
+*.bak
+*.tmp
+*~
+*.log
+
+# ============================================================
+# Publicacao no servidor (GitLab + Swarm): nada disto e usado em runtime pelo container;
+# so aumentaria a imagem ou exporia detalhe interno.
+# ============================================================
+*.md
+CLAUDE.md
+.claude/
+graphify-out/
+tests
+backend/scripts/testes/
+backend/planilhas/
+docker-compose*.yml
+stack.yml
+.gitlab-ci.yml
+.gitattributes
+.dockerignore
+docker/*.sh
+ferramentas/*.py
+*.lock
+.env.example

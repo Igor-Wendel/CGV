@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="96x96" href="../frontend/img/favicon.png">
+    <link rel="stylesheet" href="../frontend/style.css?v=b3668feb">
+
+    <title>Dashboard — CGV</title>
+
+    <script src="../backend/filtro.js?v=fab90393"></script>
+    <script src="../backend/hostinger-storage.js?v=2803bcf0"></script>
+    <script>
+        // Gestor, RH e Preposto usam esta pagina (endpoint unico backend/api/dashboard.php): RH ve tudo, Gestor/Preposto so o(s)
+        // proprio(s) centro(s). O servidor ja recusa os demais; isto so evita a tela montar antes do erro.
+        if (window.self === window.top && (typeof souGestor !== 'function' || typeof souRH !== 'function' || typeof souPreposto !== 'function' || (!souGestor() && !souRH() && !souPreposto()))) {
+            window.location.href = '../colaboradores/funcionarios.html';
+        }
+    </script>
+
+    <style>
+        /* Paleta da marca (Manual de Identidade Visual 2022), sem versao mais viva pro grafico. Teal e roxo tem
+           saturacao baixa, entao a legenda/rotulo fica sempre visivel (nunca so a cor). */
+        .dash-root {
+            --marca-teal: #006f73;      /* primaria - Engenharia | Tradicao */
+            --marca-roxo: #5b5375;      /* primaria - Inovacao | Modernidade */
+            --marca-laranja: #f08231;   /* secundaria */
+            --marca-azul: #4658c3;      /* secundaria */
+            --marca-cinza: #8c8c8c;     /* secundaria */
+            --marca-critico: #e74c3c;   /* mesmo --critico usado no resto do site (frontend/style.css) */
+            --dash-ink: #2b2b2b;
+            --dash-ink-suave: #6b6b6b;
+            --dash-grade: #e6e6e6;
+            --dash-card-bg: #ffffff;
+            --dash-card-borda: #e2e2e2;
+        }
+
+        /* Reaproveita o espaco de baixo de .conteudo-principal so nesta pagina, pra caber tudo sem rolagem; folga de
+           10px abaixo da hotbar fixa (top:15px + height:70px, ver frontend/style.css). */
+        .dash-root .conteudo-principal {
+            padding-top: 95px;
+            padding-bottom: 16px;
+        }
+
+        .dash-filtros {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            background: #fff;
+            border: 1px solid var(--dash-card-borda);
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 14px;
+        }
+
+        /* Botao unico "Filtros": abre #dash-filtros-painel (Periodo, Centro de Custo e Funcao). */
+        .dash-btn-filtros {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 9px;
+            border: none;
+            background: var(--marca-teal);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(0, 111, 115, 0.25);
+        }
+
+        .dash-btn-filtros:hover {
+            background: #00565a;
+        }
+
+        /* Painel flutuante com Periodo (presets + calendario), Centro de Custo e Funcao. */
+        .dash-filtros-painel {
+            display: none;
+            position: absolute;
+            top: calc(100% + 10px);
+            left: 0;
+            width: 380px;
+            background: #fff;
+            border: 1px solid var(--dash-card-borda);
+            border-radius: 14px;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.16);
+            padding: 18px;
+            z-index: 50;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .dash-filtros-painel.show {
+            display: flex;
+        }
+
+        .dash-filtros-painel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .dash-filtros-painel-header span {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--dash-ink);
+        }
+
+        .dash-filtros-fechar {
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: #9a9a9a;
+            padding: 2px;
+            display: flex;
+        }
+
+        .dash-filtros-fechar:hover {
+            color: var(--dash-ink);
+        }
+
+        .dash-filtros-secao {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .dash-filtros-cap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #9a9a9a;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .dash-filtros-sub {
+            font-size: 11px;
+            color: #9a9a9a;
+            margin-top: -2px;
+        }
+
+        .dash-filtros-divisor {
+            height: 1px;
+            background: #ececec;
+        }
+
+        .dash-presets {
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+            background: var(--dash-grade);
+            padding: 3px;
+            border-radius: 9px;
+        }
+
+        .dash-preset-btn {
+            flex: 1;
+            text-align: center;
+            font-size: 12px;
+            padding: 6px 11px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: var(--dash-ink-suave);
+            cursor: pointer;
+            transition: background-color 0.16s ease, color 0.16s ease, transform 0.12s ease, box-shadow 0.16s ease;
+        }
+
+        .dash-preset-btn:hover:not(.ativo) {
+            background: rgba(0, 111, 115, 0.12);
+            color: var(--marca-teal);
+        }
+
+        .dash-preset-btn.ativo {
+            background: var(--marca-teal);
+            color: #fff;
+            font-weight: bold;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dash-preset-btn {
+                transition: none;
+            }
+        }
+
+        /* Calendario embutido na secao Periodo: reaproveita .calendario-popup (frontend/style.css) sem mexer na definicao
+           global, so troca display/position. */
+        .calendario-embutido {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            box-sizing: border-box;
+            border-radius: 16px;
+        }
+
+        /* Centro de Custo/Funcao no painel: texto do valor visivel + seta, em caixa com borda simples. */
+        .dash-filtros-select {
+            display: flex !important;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #d9d9d9 !important;
+            background: #fff !important;
+            border-radius: 9px;
+            padding: 10px 12px !important;
+            font-size: 13px;
+            color: var(--dash-ink) !important;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .dash-filtros-select:hover {
+            border-color: var(--marca-teal) !important;
+        }
+
+        .dash-periodo-atual {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 13px;
+            color: var(--dash-ink-suave);
+            white-space: nowrap;
+        }
+
+        /* Grade por "linha de conteudo": 4 cards curtos, 3 rankings (listas rolaveis) e a Glosa sozinha por ultimo. Evita card
+           curto esticado ao lado de um alto e reduz a altura total. Telas estreitas reduzem as colunas. */
+        .dash-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .dash-grid-linha {
+            display: grid;
+            gap: 14px;
+        }
+
+        /* Status/Solicitacoes (barra empilhada) precisam de menos largura que Motivo/Dias da semana (colunas). */
+        .dash-grid-linha-compacta {
+            grid-template-columns: 0.75fr 0.75fr 1.25fr 1.25fr;
+        }
+
+        .dash-grid-linha-ranking {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        @media (max-width: 1300px) {
+            .dash-grid-linha-compacta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .dash-grid-linha-ranking { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 760px) {
+            .dash-grid-linha-compacta,
+            .dash-grid-linha-ranking {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .dash-card {
+            background: var(--dash-card-bg);
+            border: 1px solid var(--dash-card-borda);
+            border-left: 4px solid var(--acento-cartao, var(--dash-card-borda));
+            border-radius: 12px;
+            padding: 15px 18px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .dash-card-cabecalho {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
+        .dash-card-titulo {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--dash-ink);
+            margin: 0;
+        }
+
+        .dash-card-subtitulo {
+            font-size: 11px;
+            color: var(--dash-ink-suave);
+            margin: 2px 0 0;
+        }
+
+        .dash-btn-tabela {
+            font-size: 11px;
+            padding: 4px 9px;
+            border-radius: 5px;
+            border: 1px solid #d5d5d5;
+            background: #fafafa;
+            color: var(--dash-ink-suave);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .dash-btn-tabela:hover {
+            border-color: var(--marca-teal);
+            color: var(--marca-teal);
+        }
+
+        /* Barra empilhada (status / dias) */
+        .dash-barra-empilhada {
+            display: flex;
+            height: 24px;
+            border-radius: 6px;
+            overflow: hidden;
+            background: var(--dash-grade);
+        }
+
+        .dash-segmento {
+            height: 100%;
+        }
+
+        .dash-legenda {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-top: 14px;
+        }
+
+        .dash-legenda-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--dash-ink);
+        }
+
+        .dash-legenda-swatch {
+            width: 11px;
+            height: 11px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .dash-legenda-valor {
+            font-weight: bold;
+        }
+
+        .dash-legenda-pct {
+            color: var(--dash-ink-suave);
+        }
+
+        /* Lista de ranking (top cobriram / top ausencias) */
+        .dash-ranking-linha {
+            display: grid;
+            grid-template-columns: 150px 1fr 104px;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            font-size: 12px;
+        }
+
+        .dash-ranking-nome {
+            color: var(--dash-ink);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
+        }
+
+        .dash-ranking-funcao {
+            display: block;
+            font-size: 10.5px;
+            color: var(--dash-ink-suave);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .dash-ranking-trilha {
+            background: var(--dash-grade);
+            border-radius: 5px;
+            height: 14px;
+            overflow: hidden;
+        }
+
+        .dash-ranking-barra {
+            height: 100%;
+            border-radius: 5px;
+        }
+
+        .dash-ranking-valor {
+            text-align: right;
+            font-weight: 800;
+            font-size: 15px;
+            color: var(--dash-ink);
+        }
+
+        /* KPI grande com o total da glosa no periodo. */
+        .dash-glosa-kpi {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .dash-glosa-kpi-rotulo {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--dash-ink-suave);
+        }
+
+        .dash-glosa-kpi-valor {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--marca-critico);
+            letter-spacing: -0.01em;
+        }
+
+        /* Detalhamento por funcao, aberto ao clicar num posto do cartao
+           "Glosa por posto" (ver renderizarRankingGlosa). */
+        .dash-glosa-linha {
+            cursor: pointer;
+        }
+
+        .dash-glosa-seta {
+            display: inline-block;
+            width: 10px;
+            transition: transform 0.15s;
+        }
+
+        .dash-glosa-linha.aberta .dash-glosa-seta {
+            transform: rotate(90deg);
+        }
+
+        .dash-glosa-detalhe {
+            margin: -4px 0 12px 0;
+            padding: 8px 12px;
+            background: var(--dash-grade);
+            border-radius: 8px;
+            font-size: 11.5px;
+        }
+
+        .dash-glosa-detalhe-linha {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 3px 0;
+            color: var(--dash-ink-suave);
+        }
+
+        .dash-glosa-detalhe-linha .dash-glosa-funcao {
+            color: var(--dash-ink);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .dash-glosa-detalhe-linha .dash-glosa-valor {
+            font-weight: bold;
+            color: var(--dash-ink);
+            white-space: nowrap;
+        }
+
+        .dash-vazio {
+            font-size: 12px;
+            color: var(--dash-ink-suave);
+            padding: 20px 0;
+            text-align: center;
+        }
+
+        /* Scroll proprio (nao empurra o card inteiro) nos 3 rankings, que podem ter lista longa. */
+        .dash-rolavel {
+            max-height: 175px;
+            overflow-y: auto;
+        }
+
+        /* "Ver tabela" (montarTabelaSimples): cabecalho fixo + corpo rolavel em 2 <table> separadas (sticky thead dentro do
+           scroll vaza conteudo no Chromium/Edge; ver .tabela-cabecalho-fixo em frontend/style.css). Colunas iguais via
+           table-layout:fixed + <colgroup> gerado em JS (3 a 5 colunas conforme o tipo). */
+        .dash-tabela-wrap {
+            border: 1px solid var(--dash-card-borda);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .dash-tabela-corpo {
+            max-height: 175px;
+            overflow-y: auto;
+        }
+
+        .dash-tabela {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .dash-tabela th, .dash-tabela td {
+            text-align: left;
+            padding: 6px 8px;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+            border-bottom: 1px solid var(--dash-grade);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .dash-tabela-corpo tr:last-child td {
+            border-bottom: none;
+        }
+
+        .dash-tabela-cabecalho th {
+            background-color: var(--marca-teal);
+            color: #fff;
+            font-weight: normal;
+            text-transform: uppercase;
+            font-size: 10.5px;
+            border-bottom: none;
+        }
+
+        /* Tooltip flutuante compartilhado entre os graficos */
+        #dash-tooltip {
+            position: fixed;
+            display: none;
+            background: #2b2b2b;
+            color: #fff;
+            font-size: 11px;
+            padding: 6px 9px;
+            border-radius: 5px;
+            pointer-events: none;
+            z-index: 3000;
+            white-space: nowrap;
+        }
+
+        .dash-eixo-svg text {
+            fill: var(--dash-ink-suave);
+            font-size: 10px;
+        }
+
+        .dash-eixo-svg .dash-grade-linha {
+            stroke: var(--dash-grade);
+            stroke-width: 1;
+        }
+
+        /* Modo escuro: quase tudo usa as variaveis --dash-*, entao reapontar pros tokens --dt-* (frontend/style.css) converte
+           a pagina; so os valores fixos abaixo precisam de regra propria. #dash-tooltip fica escuro nos dois temas
+           (igual ao .tooltip-flutuante global). */
+        [data-tema="escuro"] .dash-root {
+            --dash-ink: var(--dt-text);
+            --dash-ink-suave: var(--dt-text-muted);
+            --dash-grade: var(--dt-surface-2);
+            --dash-card-bg: var(--dt-surface);
+            --dash-card-borda: var(--dt-border);
+        }
+        [data-tema="escuro"] .dash-filtros,
+        [data-tema="escuro"] .dash-filtros-painel {
+            background: var(--dt-surface);
+        }
+        [data-tema="escuro"] .dash-filtros-select {
+            background: var(--dt-surface) !important;
+            border-color: var(--dt-border) !important;
+        }
+        [data-tema="escuro"] .dash-filtros-divisor {
+            background: var(--dt-border);
+        }
+        [data-tema="escuro"] .dash-filtros-cap,
+        [data-tema="escuro"] .dash-filtros-sub,
+        [data-tema="escuro"] .dash-filtros-fechar {
+            color: var(--dt-text-muted);
+        }
+        [data-tema="escuro"] .dash-btn-tabela {
+            background: var(--dt-surface-2);
+            border-color: var(--dt-border);
+        }
+    </style>
+</head>
+
+<body class="dash-root">
+
+    <nav class="hotbar">
+        <div class="hotbar-nav">
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn active" onclick="toggleHotbarDropdown(event, 'drop-colab')">COLABORADORES</button>
+            <div class="hotbar-dropdown-content" id="drop-colab">
+                <a href="../colaboradores/funcionarios.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2"/><path d="M5.8 15.5c.5-1.6 1.6-2.4 2.7-2.4s2.2.8 2.7 2.4"/><path d="M13.5 9.5h5M13.5 13h5"/></svg><div class="item-textos"><b>Funcionarios</b><span class="item-desc">Colaboradores da minha gestao</span></div></a>
+                <a href="dashboard.html" class="item-premium" id="item-dashboard-gestor" style="display:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.3"/></svg><div class="item-textos"><b>Dashboard</b><span class="item-desc">Indicadores e visao geral da equipe</span></div></a>
+                <a href="dashboard.html" class="item-premium" id="item-dashboard-preposto" style="display:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.3"/></svg><div class="item-textos"><b>Dashboard</b><span class="item-desc">Indicadores e visao geral da equipe</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" id="item-localizacao-ponto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.7 7-12.2A7 7 0 1 0 5 8.8C5 14.3 12 21 12 21Z"/><circle cx="12" cy="8.7" r="2.4"/></svg><div class="item-textos"><b>Localizacao - Ponto</b><span class="item-desc">Local e ponto do colaborador</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-cob')">COBERTURAS</button>
+            <div class="hotbar-dropdown-content" id="drop-cob">
+                <a href="solicitacao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4"/><path d="M9.3 12.2h5.4M9.3 15.6h5.4M9.3 8.8h2"/></svg><div class="item-textos"><b>Solicitacoes</b><span class="item-desc">Pedidos de cobertura</span></div></a>
+                <a href="previsao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 6h6v6"/></svg><div class="item-textos"><b>Previsao</b><span class="item-desc">Projecao e historico de cobertura de ferias</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" onclick="abrirModalNotificacao()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2a5 5 0 0 0-5 5v3.3c0 .9-.35 1.75-1 2.4l-.8.8h13.6l-.8-.8c-.65-.65-1-1.5-1-2.4V8.2a5 5 0 0 0-5-5Z"/><path d="M9.6 18.2a2.4 2.4 0 0 0 4.8 0"/></svg><div class="item-textos"><b>Notificacao</b><span class="item-desc">Avisar responsavel</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-fopag')">FOPAG</button>
+            <div class="hotbar-dropdown-content" id="drop-fopag">
+                <a href="../fopag/pfm-volantes.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Volantes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+                <a href="../fopag/pfm-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-ben')">BENEFICIOS</button>
+            <div class="hotbar-dropdown-content" id="drop-ben">
+                <a href="../beneficios/bene-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 2.8v4M16 2.8v4"/><path d="M3.5 9.8h17"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Beneficios do intermitente</span></div></a>            </div>
+        </div>
+        </div>
+        <div class="hotbar-util">
+            <button class="btn-sino" onclick="toggleNotificacoes()">
+                🔔<div class="badge-notificacao" id="badge-sino" style="display: none;">0</div>
+            </button>
+        </div>
+    </nav>
+
+    <div class="painel-notificacoes" id="painel-notificacoes">
+        <div class="painel-header">
+            <h3>Alertas</h3>
+        </div>
+        <div class="lista-notificacoes" id="lista-notificacoes">
+            <div class="notificacao-vazia">Nenhum alerta.</div>
+        </div>
+    </div>
+
+    <div class="conteudo-principal">
+
+        <div class="dash-filtros">
+            <div style="position:relative;">
+                <!-- Botao unico "Filtros": Periodo, Centro de Custo e Funcao moram no mesmo painel (#dash-filtros-painel). -->
+                <button type="button" class="dash-btn-filtros" id="dash-btn-filtros" onclick="toggleFiltrosPainel()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16L14 13v6l-4 2v-8L4 5z"/></svg>
+                    Filtros
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+
+                <div id="dash-filtros-painel" class="dash-filtros-painel">
+                    <div class="dash-filtros-painel-header">
+                        <span>Filtros</span>
+                        <button type="button" class="dash-filtros-fechar" onclick="fecharFiltrosPainel()" title="Fechar">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="dash-filtros-secao">
+                        <span class="dash-filtros-cap">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                            Período
+                        </span>
+                        <div class="dash-presets" id="dash-presets"></div>
+                        <div class="dash-filtros-sub">ou personalize um intervalo</div>
+
+                        <!-- Calendario igual ao do Preposto (colaboradores/funcionarios.html, modo "preposto-periodo"): intervalo em 2 cliques,
+                           sem restricao de datas futuras, embutido no painel (.calendario-embutido). -->
+                        <div id="dash-calendario-popup" class="calendario-popup calendario-embutido calendario-modo-range">
+                            <div class="calendario-glow"></div>
+                            <div class="calendario-header">
+                                <button type="button" class="calendario-nav" onclick="calendarioPeriodoMudarMes(-1)">‹</button>
+                                <span id="dash-calendario-titulo" class="calendario-titulo"></span>
+                                <button type="button" class="calendario-nav" onclick="calendarioPeriodoMudarMes(1)">›</button>
+                            </div>
+                            <div class="calendario-semana">
+                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                            </div>
+                            <div id="dash-calendario-grade" class="calendario-grade"></div>
+                        </div>
+                    </div>
+
+                    <div class="dash-filtros-divisor"></div>
+
+                    <div class="dash-filtros-secao" id="dash-filtro-centro-wrapper" style="display:none;">
+                        <span class="dash-filtros-cap">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-4h4v4"/></svg>
+                            Centro de custo
+                        </span>
+                        <div class="multi-select-container">
+                            <div class="multi-select-button dash-filtros-select" onclick="toggleDropdownCentro()" title="Filtrar">
+                                <span id="dash-label-centro">Todos</span>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                            </div>
+                            <div id="dash-dropdown-centro" class="multi-select-dropdown">
+                                <div class="dropdown-controls">
+                                    <button class="btn-mini" onclick="marcarTodosCentro(true)">Todos</button>
+                                    <button class="btn-mini" onclick="marcarTodosCentro(false)">Limpar</button>
+                                </div>
+                                <div id="dash-items-centro" class="items-list"></div>
+                                <div class="dropdown-aplicar-container">
+                                    <button class="btn-aplicar-filtro" onclick="confirmarFiltroCentro()">Aplicar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dash-filtros-secao" id="dash-filtro-funcao-wrapper">
+                        <span class="dash-filtros-cap">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5c2.6.3 4.5 2.5 4.5 5.5"/></svg>
+                            Função
+                        </span>
+                        <div class="multi-select-container">
+                            <div class="multi-select-button dash-filtros-select" onclick="toggleDropdownFuncao()" title="Filtrar">
+                                <span id="dash-label-funcao">Todas</span>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                            </div>
+                            <div id="dash-dropdown-funcao" class="multi-select-dropdown">
+                                <div class="dropdown-controls">
+                                    <button class="btn-mini" onclick="marcarTodosFuncao(true)">Todas</button>
+                                    <button class="btn-mini" onclick="marcarTodosFuncao(false)">Limpar</button>
+                                </div>
+                                <div id="dash-items-funcao" class="items-list"></div>
+                                <div class="dropdown-aplicar-container">
+                                    <button class="btn-aplicar-filtro" onclick="confirmarFiltroFuncao()">Aplicar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dash-periodo-atual" id="dash-periodo-atual"></div>
+        </div>
+
+        <div class="dash-grid" id="dash-grid">
+
+            <div class="dash-grid-linha dash-grid-linha-compacta">
+
+                <div class="dash-card" style="--acento-cartao: var(--marca-teal)">
+                    <div class="dash-card-cabecalho">
+                        <div>
+                            <p class="dash-card-titulo">Status das solicitacoes</p>
+                            <p class="dash-card-subtitulo">Aberta, parcialmente coberta e fechada</p>
+                        </div>
+                        <button class="dash-btn-tabela" onclick="alternarTabela('status', event)">Ver tabela</button>
+                    </div>
+                    <div id="dash-status-grafico"></div>
+                    <div class="dash-tabela-wrap" id="dash-status-tabela" style="display:none;"></div>
+                </div>
+
+                <div class="dash-card" style="--acento-cartao: var(--marca-laranja)">
+                    <div class="dash-card-cabecalho">
+                        <div>
+                            <p class="dash-card-titulo">Solicitações</p>
+                            <p class="dash-card-subtitulo">Fechada com cobertura, sem cobertura ou ainda aberta</p>
+                        </div>
+                        <button class="dash-btn-tabela" onclick="alternarTabela('dias', event)">Ver tabela</button>
+                    </div>
+                    <div id="dash-dias-grafico"></div>
+                    <div class="dash-tabela-wrap" id="dash-dias-tabela" style="display:none;"></div>
+                </div>
+
+                <div class="dash-card" style="--acento-cartao: var(--marca-roxo)">
+                    <div class="dash-card-cabecalho">
+                        <div>
+                            <p class="dash-card-titulo">Solicitações por motivo</p>
+                            <p class="dash-card-subtitulo">Falta, atestado, serviço extra, afastamento e desligamento</p>
+                        </div>
+                        <button class="dash-btn-tabela" onclick="alternarTabela('motivo', event)">Ver tabela</button>
+                    </div>
+                    <div id="dash-motivo-grafico"></div>
+                    <div class="dash-tabela-wrap" id="dash-motivo-tabela" style="display:none;"></div>
+                </div>
+
+                <div class="dash-card" style="--acento-cartao: var(--marca-azul)">
+                    <div class="dash-card-cabecalho">
+                        <div>
+                            <p class="dash-card-titulo">Dias da semana com mais solicitacoes</p>
+                            <p class="dash-card-subtitulo">Pelo dia de inicio de cada solicitacao</p>
+                        </div>
+                        <button class="dash-btn-tabela" onclick="alternarTabela('semana', event)">Ver tabela</button>
+                    </div>
+                    <div id="dash-semana-grafico"></div>
+                    <div class="dash-tabela-wrap" id="dash-semana-tabela" style="display:none;"></div>
+                </div>
+
+            </div>
+
+            <div class="dash-grid-linha dash-grid-linha-ranking" id="dash-linha-ranking">
+
+                <div class="dash-card" id="dash-card-cobriram" style="--acento-cartao: var(--marca-teal)">
+                    <div class="dash-card-cabecalho">
+                        <div>
+                            <p class="dash-card-titulo">Quem mais cobriu dias</p>
+                            <p class="dash-card-subtitulo">Volantes designados no periodo</p>
+                        </div>
+                        <button class="dash-btn-tabela" onclick="alternarTabela('cobriram', event)">Ver tabela</button>
+                    </div>
+                    <div id="dash-cobriram-grafico" class="dash-rolavel"></div>
+                    <div class="dash-tabela-wrap" id="dash-cobriram-tabela" style="display:none;"></div>
+                </div>
+
+                <div class="dash-card" id="dash-card-base" style="--acento-cartao: var(--marca-roxo)">
+                    <div class="dash-card-cabecalho">
+                        <div>
+                            <p class="dash-card-titulo">Quem mais ficou sem fazer cobertura</p>
+                            <p class="dash-card-subtitulo">Dias sem cobrir ninguém no período</p>
+                        </div>
+                        <button class="dash-btn-tabela" onclick="alternarTabela('base', event)">Ver tabela</button>
+                    </div>
+                    <div id="dash-base-grafico" class="dash-rolavel"></div>
+                    <div class="dash-tabela-wrap" id="dash-base-tabela" style="display:none;"></div>
+                </div>
+
+                <div class="dash-card" style="--acento-cartao: var(--marca-laranja)">
+                    <div class="dash-card-cabecalho">
+                        <div>
+                            <p class="dash-card-titulo">Quem mais se ausentou</p>
+                            <p class="dash-card-subtitulo">Dias de falta e atestado no período</p>
+                        </div>
+                        <button class="dash-btn-tabela" onclick="alternarTabela('ausencias', event)">Ver tabela</button>
+                    </div>
+                    <div id="dash-ausencias-grafico" class="dash-rolavel"></div>
+                    <div class="dash-tabela-wrap" id="dash-ausencias-tabela" style="display:none;"></div>
+                </div>
+
+            </div>
+
+            <div class="dash-grid-linha" id="dash-linha-glosa">
+
+            <div class="dash-card" style="--acento-cartao: var(--marca-critico)">
+                <div class="dash-card-cabecalho" style="align-items:center;">
+                    <div>
+                        <p class="dash-card-titulo">Glosa por posto</p>
+                        <p class="dash-card-subtitulo">Diária do titular ausente sem cobertura, somada por posto - clique num posto pra ver por função</p>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <div class="dash-glosa-kpi">
+                            <span class="dash-glosa-kpi-rotulo">Total no período</span>
+                            <span class="dash-glosa-kpi-valor" id="dash-glosa-total">R$ 0,00</span>
+                        </div>
+                        <button class="dash-btn-tabela" onclick="alternarTabela('glosa', event)">Ver tabela</button>
+                    </div>
+                </div>
+                <div id="dash-glosa-grafico" class="dash-rolavel"></div>
+                <div class="dash-tabela-wrap" id="dash-glosa-tabela" style="display:none;"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div id="dash-tooltip"></div>
+
+    <script>
+        // Paleta da marca (ver <style>), repetida aqui porque o SVG e montado via DOM (evita getComputedStyle).
+        const COR_TEAL = '#006f73';
+        const COR_ROXO = '#5b5375';
+        const COR_LARANJA = '#f08231';
+        const COR_AZUL = '#4658c3';
+        const COR_CINZA = '#8c8c8c';
+        const COR_CRITICO = '#e74c3c';
+
+        const NOMES_DIA_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+        const PRESETS = [
+            { chave: 'hoje', rotulo: 'Hoje', dias: 0 },
+            { chave: '7', rotulo: 'Últimos 7 dias', dias: 6 },
+            { chave: '30', rotulo: 'Últimos 30 dias', dias: 29 },
+            { chave: '90', rotulo: 'Últimos 90 dias', dias: 89 },
+        ];
+
+        let presetAtivo = '30';
+        let filtroDataInicioIso = null;
+        let filtroDataFimIso = null;
+        // O botao do calendario so mostra data quando o proprio calendario escolheu o periodo (nao com preset); fica em branco ate la.
+        let calendarioTemSelecao = false;
+
+        // Pagina unica para RH, Gestor e Preposto: o servidor (backend/api/dashboard.php) decide o escopo e quais cartoes
+        // calcular (Preposto nao recebe "quem mais cobriu"/"quem mais ficou de base").
+        const dbDashCentrosCusto = dbDashboardCentrosCusto;
+        const dbDashFuncoes = dbDashboardFuncoes;
+        const dbDashResumo = dbDashboardResumo;
+
+        let centrosPermitidos = null; // null = irrestrito (RH) - filtro de centro fica escondido
+        let centrosSelecionados = [];
+        let centrosPendente = [];
+
+        // centrosSelecionados comeca com TODOS marcados; so manda a lista ao backend quando e um subconjunto real (usuario
+        // desmarcou algo), senao null. Lista cheia ligaria sem querer a regra de cobertura (preposto_centro_cobertura) e
+        // zeraria o RH; com null, Gestor/Preposto usam o escopo proprio (centrosCustoLiberados) e RH fica sem filtro.
+        function centroFiltroParaEnviar() {
+            if (!centrosPermitidos || centrosSelecionados.length === 0) return null;
+            return centrosSelecionados.length < centrosPermitidos.length ? centrosSelecionados : null;
+        }
+
+        let funcoesDisponiveis = [];
+        let funcaoSelecionadas = [];
+        let funcaoPendente = [];
+
+        let ultimoResumo = null;
+
+        function hojeIso() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function isoParaBr(iso) {
+            const [a, m, d] = iso.split('-');
+            return `${d}/${m}/${a}`;
+        }
+
+        function diasEntreIso(isoInicio, isoFim) {
+            const d1 = new Date(isoInicio + 'T00:00:00');
+            const d2 = new Date(isoFim + 'T00:00:00');
+            return Math.round((d2 - d1) / 86400000) + 1;
+        }
+
+        function somarDiasIso(iso, dias) {
+            const d = new Date(iso + 'T00:00:00');
+            d.setDate(d.getDate() + dias);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function montarPresets() {
+            const container = document.getElementById('dash-presets');
+            container.innerHTML = '';
+            PRESETS.forEach(p => {
+                const btn = document.createElement('button');
+                btn.className = 'dash-preset-btn' + (p.chave === presetAtivo ? ' ativo' : '');
+                btn.textContent = p.rotulo;
+                btn.addEventListener('click', () => selecionarPreset(p.chave));
+                container.appendChild(btn);
+            });
+        }
+
+        function selecionarPreset(chave) {
+            presetAtivo = chave;
+            const preset = PRESETS.find(p => p.chave === chave);
+            const fim = hojeIso();
+            const inicio = somarDiasIso(fim, -preset.dias);
+            filtroDataInicioIso = inicio;
+            filtroDataFimIso = fim;
+            // Preset e calendario sao alternativos: escolher um preset limpa o calendario
+            calendarioTemSelecao = false;
+            montarPresets();
+            aplicarFiltrosDependentesDoPeriodo();
+        }
+
+        // ---- Calendario do periodo customizado: mesmo modelo do Preposto (funcionarios.html, modo "preposto-periodo"), sem
+        // restricao de datas futuras; embutido no painel de Filtros ----
+        let calMesAtual = new Date();
+        let calRangeInicio = null;
+        let calRangeFim = null;
+
+        function calendarioPeriodoMudarMes(delta) {
+            calMesAtual.setMonth(calMesAtual.getMonth() + delta);
+            renderizarCalendarioPeriodo();
+        }
+
+        function renderizarCalendarioPeriodo() {
+            const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            const ano = calMesAtual.getFullYear();
+            const mes = calMesAtual.getMonth();
+            document.getElementById('dash-calendario-titulo').textContent = `${MESES[mes]} ${ano}`;
+
+            const primeiroDiaMes = new Date(ano, mes, 1);
+            const offset = primeiroDiaMes.getDay(); // semana comeca no domingo
+
+            const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+            const diasNoMesAnterior = new Date(ano, mes, 0).getDate();
+            const totalCelulas = Math.ceil((offset + diasNoMes) / 7) * 7;
+
+            const grade = document.getElementById('dash-calendario-grade');
+            grade.innerHTML = '';
+
+            for (let i = 0; i < totalCelulas; i++) {
+                const numeroDia = i - offset + 1;
+                let diaData, dentroDoMes = true;
+                if (numeroDia < 1) {
+                    diaData = new Date(ano, mes - 1, diasNoMesAnterior + numeroDia);
+                    dentroDoMes = false;
+                } else if (numeroDia > diasNoMes) {
+                    diaData = new Date(ano, mes + 1, numeroDia - diasNoMes);
+                    dentroDoMes = false;
+                } else {
+                    diaData = new Date(ano, mes, numeroDia);
+                }
+                const isoDia = `${diaData.getFullYear()}-${String(diaData.getMonth() + 1).padStart(2, '0')}-${String(diaData.getDate()).padStart(2, '0')}`;
+
+                const div = document.createElement('div');
+                div.className = 'calendario-dia';
+                div.textContent = diaData.getDate();
+
+                if (!dentroDoMes) {
+                    div.classList.add('calendario-dia-fora');
+                } else {
+                    if (isoDia === calRangeInicio || isoDia === calRangeFim) {
+                        div.classList.add('calendario-dia-selecionado', 'calendario-dia-extremidade');
+                    } else if (calRangeInicio && calRangeFim && isoDia > calRangeInicio && isoDia < calRangeFim) {
+                        div.classList.add('calendario-dia-no-intervalo');
+                    }
+                    div.onclick = () => selecionarDiaPeriodo(isoDia);
+                }
+                grade.appendChild(div);
+            }
+        }
+
+        // 1o clique define o inicio (reinicia se ja havia intervalo completo); 2o define o fim e aplica o filtro.
+        function selecionarDiaPeriodo(isoDia) {
+            if (!calRangeInicio || calRangeFim) {
+                calRangeInicio = isoDia;
+                calRangeFim = null;
+                renderizarCalendarioPeriodo();
+                return;
+            }
+            let inicio = calRangeInicio, fim = isoDia;
+            if (fim < inicio) [inicio, fim] = [fim, inicio];
+            calRangeInicio = inicio;
+            calRangeFim = fim;
+
+            presetAtivo = null;
+            filtroDataInicioIso = inicio;
+            filtroDataFimIso = fim;
+            calendarioTemSelecao = true;
+            montarPresets();
+            // Redesenha a grade ja com o intervalo completo marcado
+            renderizarCalendarioPeriodo();
+            // O calendario mora no painel de Filtros, que continua aberto (o usuario pode ajustar Centro/Funcao em seguida)
+            aplicarFiltrosDependentesDoPeriodo();
+        }
+
+        // ---- Painel unico de Filtros (Periodo+calendario, Centro de Custo, Funcao) ----
+        function toggleFiltrosPainel() {
+            const painel = document.getElementById('dash-filtros-painel');
+            const abrir = !painel.classList.contains('show');
+            document.querySelectorAll('.multi-select-dropdown').forEach(d => d.classList.remove('show'));
+            painel.classList.remove('show');
+            if (!abrir) return;
+
+            // So reabre com o range marcado se o proprio calendario definiu o periodo; com preset, abre em branco no mes de hoje
+            calRangeInicio = calendarioTemSelecao ? filtroDataInicioIso : null;
+            calRangeFim = calendarioTemSelecao ? filtroDataFimIso : null;
+            calMesAtual = calRangeInicio ? new Date(calRangeInicio + 'T00:00:00') : new Date();
+
+            painel.classList.add('show');
+            renderizarCalendarioPeriodo();
+        }
+
+        function fecharFiltrosPainel() {
+            document.getElementById('dash-filtros-painel').classList.remove('show');
+        }
+
+        // ---- Filtro de centro de custo (multi-selecao, ver coberturas/solicitacoes-gestor.html) ----
+        function toggleDropdownCentro() {
+            const dd = document.getElementById('dash-dropdown-centro');
+            const abrir = !dd.classList.contains('show');
+            document.querySelectorAll('.multi-select-dropdown').forEach(d => d.classList.remove('show'));
+            if (abrir) {
+                centrosPendente = centrosSelecionados.slice();
+                renderizarItensFiltroCentro();
+                dd.classList.add('show');
+            }
+        }
+
+        document.addEventListener('click', (evento) => {
+            // composedPath() (caminho no momento do clique) em vez de evento.target.closest(): o clique num dia reconstroi a grade,
+            // entao o alvo ja saiu do DOM quando este listener roda e o popup fecharia por engano.
+            const caminho = evento.composedPath();
+            const clicouDentroDropdown = caminho.some(el => el.classList?.contains('multi-select-button') || el.classList?.contains('multi-select-dropdown'));
+            if (!clicouDentroDropdown) {
+                document.querySelectorAll('.multi-select-dropdown').forEach(d => d.classList.remove('show'));
+            }
+            const clicouDentroFiltros = caminho.some(el => el.id === 'dash-btn-filtros' || el.id === 'dash-filtros-painel');
+            if (!clicouDentroFiltros) {
+                fecharFiltrosPainel();
+            }
+        });
+
+        function renderizarItensFiltroCentro() {
+            const container = document.getElementById('dash-items-centro');
+            container.innerHTML = '';
+            (centrosPermitidos || []).forEach(valor => {
+                const div = document.createElement('div');
+                div.className = 'multi-select-item';
+                const label = document.createElement('label');
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.checked = centrosPendente.includes(valor);
+                input.addEventListener('change', () => {
+                    const idx = centrosPendente.indexOf(valor);
+                    if (input.checked && idx === -1) centrosPendente.push(valor);
+                    else if (!input.checked && idx > -1) centrosPendente.splice(idx, 1);
+                });
+                label.appendChild(input);
+                label.appendChild(document.createTextNode(' ' + formatarCentroCusto(valor)));
+                div.appendChild(label);
+                container.appendChild(div);
+            });
+        }
+
+        function marcarTodosCentro(marcar) {
+            centrosPendente = marcar ? (centrosPermitidos || []).slice() : [];
+            renderizarItensFiltroCentro();
+        }
+
+        function confirmarFiltroCentro() {
+            centrosSelecionados = centrosPendente.slice();
+            const rotulo = document.getElementById('dash-label-centro');
+            const total = (centrosPermitidos || []).length;
+            rotulo.textContent = (centrosSelecionados.length === 0 || centrosSelecionados.length === total)
+                ? 'Todos'
+                : `${centrosSelecionados.length} selecionado(s)`;
+            document.getElementById('dash-dropdown-centro').classList.remove('show');
+            aplicarFiltrosDependentesDoPeriodo();
+        }
+
+        // ---- Filtro de funcao - so afeta "Quem mais cobriu"/"Quem mais se ausentou" (feito no servidor) ----
+        function toggleDropdownFuncao() {
+            const dd = document.getElementById('dash-dropdown-funcao');
+            const abrir = !dd.classList.contains('show');
+            document.querySelectorAll('.multi-select-dropdown').forEach(d => d.classList.remove('show'));
+            if (abrir) {
+                funcaoPendente = funcaoSelecionadas.slice();
+                renderizarItensFiltroFuncao();
+                dd.classList.add('show');
+            }
+        }
+
+        function renderizarItensFiltroFuncao() {
+            const container = document.getElementById('dash-items-funcao');
+            container.innerHTML = '';
+            funcoesDisponiveis.forEach(valor => {
+                const div = document.createElement('div');
+                div.className = 'multi-select-item';
+                const label = document.createElement('label');
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.checked = funcaoPendente.includes(valor);
+                input.addEventListener('change', () => {
+                    const idx = funcaoPendente.indexOf(valor);
+                    if (input.checked && idx === -1) funcaoPendente.push(valor);
+                    else if (!input.checked && idx > -1) funcaoPendente.splice(idx, 1);
+                });
+                label.appendChild(input);
+                label.appendChild(document.createTextNode(' ' + valor));
+                div.appendChild(label);
+                container.appendChild(div);
+            });
+        }
+
+        function marcarTodosFuncao(marcar) {
+            funcaoPendente = marcar ? funcoesDisponiveis.slice() : [];
+            renderizarItensFiltroFuncao();
+        }
+
+        function confirmarFiltroFuncao() {
+            funcaoSelecionadas = funcaoPendente.slice();
+            const rotulo = document.getElementById('dash-label-funcao');
+            rotulo.textContent = (funcaoSelecionadas.length === 0 || funcaoSelecionadas.length === funcoesDisponiveis.length)
+                ? 'Todas'
+                : `${funcaoSelecionadas.length} selecionada(s)`;
+            document.getElementById('dash-dropdown-funcao').classList.remove('show');
+            carregarDashboard();
+        }
+
+        // ---- Tooltip flutuante compartilhado ----
+        function mostrarTooltip(evento, texto) {
+            const tt = document.getElementById('dash-tooltip');
+            tt.textContent = texto;
+            tt.style.display = 'block';
+            tt.style.left = (evento.clientX + 12) + 'px';
+            tt.style.top = (evento.clientY + 12) + 'px';
+        }
+        function esconderTooltip() {
+            document.getElementById('dash-tooltip').style.display = 'none';
+        }
+
+        // ---- Carregamento ----
+        // Recalcula os centros de custo do periodo atual (backend/api/dashboard.php acao=centros_custo): so os com solicitacao
+        // no periodo. Roda a cada mudanca de periodo.
+        //
+        // Rodadas: cada mudanca de filtro abre uma rodada nova, que cancela os pedidos da anterior e invalida as respostas
+        // atrasadas dela (so a ultima conta); senao um carregamento antigo sobrescreveria a tela com numeros do filtro errado.
+        let rodadaDash = 0;
+        let controleDash = null;
+        function novaRodadaDash() {
+            if (controleDash) controleDash.abort();
+            controleDash = new AbortController();
+            return ++rodadaDash;
+        }
+        const sinalDash = () => (controleDash ? controleDash.signal : undefined);
+
+        async function garantirCentrosCusto(rodada = rodadaDash) {
+            const selecionadosAntes = centrosSelecionados.slice();
+            let lista = null;
+            try {
+                lista = await dbDashCentrosCusto(
+                    filtroDataInicioIso ? isoParaBr(filtroDataInicioIso) : null,
+                    filtroDataFimIso ? isoParaBr(filtroDataFimIso) : null,
+                    sinalDash()
+                );
+            } catch (err) {
+                lista = null;
+            }
+            if (rodada !== rodadaDash) return; // filtro ja mudou de novo
+            // "Todos" continua "Todos" quando a lista muda (senao alargar o periodo encolhia o dashboard)
+            const eraTodos = selecionadosAntes.length === 0
+                || selecionadosAntes.length === (centrosPermitidos || []).length;
+            centrosPermitidos = lista;
+            const wrapper = document.getElementById('dash-filtro-centro-wrapper');
+            if (centrosPermitidos && centrosPermitidos.length > 0) {
+                wrapper.style.display = '';
+                // Mantem o que ainda existe na lista nova; se nada sobrou, volta ao padrao "todos" (so para subconjunto real, ver eraTodos)
+                const aindaValidos = selecionadosAntes.filter(c => centrosPermitidos.includes(c));
+                centrosSelecionados = (!eraTodos && aindaValidos.length > 0) ? aindaValidos : centrosPermitidos.slice();
+            } else {
+                wrapper.style.display = 'none';
+                centrosSelecionados = [];
+            }
+            const rotulo = document.getElementById('dash-label-centro');
+            const total = (centrosPermitidos || []).length;
+            rotulo.textContent = (centrosSelecionados.length === 0 || centrosSelecionados.length === total)
+                ? 'Todos'
+                : `${centrosSelecionados.length} selecionado(s)`;
+        }
+
+        // Recalcula as funcoes do periodo/centro atuais (backend/api/dashboard.php acao=funcoes); roda a cada mudanca de um dos dois.
+        async function garantirFuncoes(rodada = rodadaDash) {
+            const selecionadasAntes = funcaoSelecionadas.slice();
+            let lista = [];
+            try {
+                lista = await dbDashFuncoes(
+                    filtroDataInicioIso ? isoParaBr(filtroDataInicioIso) : null,
+                    filtroDataFimIso ? isoParaBr(filtroDataFimIso) : null,
+                    centroFiltroParaEnviar(),
+                    sinalDash()
+                );
+            } catch (err) {
+                lista = [];
+            }
+            if (rodada !== rodadaDash) return; // filtro ja mudou de novo
+            // Mesma regra dos centros: todas marcadas = "Todas" ([])
+            const eramTodas = selecionadasAntes.length === funcoesDisponiveis.length;
+            funcoesDisponiveis = lista;
+            const wrapper = document.getElementById('dash-filtro-funcao-wrapper');
+            if (funcoesDisponiveis.length > 0) {
+                wrapper.style.display = '';
+                // Mantem a funcao que ainda existe na lista nova; descarta a que sumiu
+                funcaoSelecionadas = eramTodas ? [] : selecionadasAntes.filter(f => funcoesDisponiveis.includes(f));
+            } else {
+                wrapper.style.display = 'none';
+                funcaoSelecionadas = [];
+            }
+            const rotulo = document.getElementById('dash-label-funcao');
+            rotulo.textContent = (funcaoSelecionadas.length === 0 || funcaoSelecionadas.length === funcoesDisponiveis.length)
+                ? 'Todas'
+                : `${funcaoSelecionadas.length} selecionada(s)`;
+        }
+
+        // Periodo ou centro mudaram: recalcula centros e funcoes (centro antes, funcao depende dele) e so depois recarrega o dashboard
+        async function aplicarFiltrosDependentesDoPeriodo() {
+            const rodada = novaRodadaDash();
+            await garantirCentrosCusto(rodada);
+            if (rodada !== rodadaDash) return;
+            await garantirFuncoes(rodada);
+            if (rodada !== rodadaDash) return;
+            carregarDashboard(rodada);
+        }
+
+        // Chamada direta (ex: filtro de funcao) abre rodada propria; vinda de aplicarFiltrosDependentesDoPeriodo, continua a dela
+        let avisoSafDashMostrado = false;
+        async function carregarDashboard(rodada = novaRodadaDash()) {
+            atualizarTextoPeriodo();
+            // Toast de progresso (mostrarToastProgresso, backend/filtro.js): carregarDashboard() dispara a cada mudanca de filtro
+            const toastCarga = mostrarToastProgresso('Carregando dashboard...');
+            try {
+                const resumo = await dbDashResumo(
+                    filtroDataInicioIso ? isoParaBr(filtroDataInicioIso) : null,
+                    filtroDataFimIso ? isoParaBr(filtroDataFimIso) : null,
+                    centroFiltroParaEnviar(),
+                    funcaoSelecionadas,
+                    sinalDash()
+                );
+                if (rodada !== rodadaDash) { toastCarga.remove(); return; }
+                ultimoResumo = resumo;
+                renderizarDashboard(ultimoResumo);
+                finalizarToastProgresso(toastCarga, 'Dashboard atualizado.', '#27ae60', 1200);
+            } catch (err) {
+                // Rodada velha (cancelada ou atropelada): some sem avisar erro.
+                if (rodada !== rodadaDash) { toastCarga.remove(); return; }
+                document.getElementById('dash-grid').innerHTML =
+                    `<div class="dash-vazio">Erro ao carregar o dashboard: ${err.message}</div>`;
+                finalizarToastProgresso(toastCarga, 'Erro ao carregar o dashboard.', '#e74c3c', 4000);
+            }
+        }
+
+        function atualizarTextoPeriodo() {
+            const el = document.getElementById('dash-periodo-atual');
+            if (filtroDataInicioIso && filtroDataFimIso) {
+                const dias = diasEntreIso(filtroDataInicioIso, filtroDataFimIso);
+                el.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                    ${isoParaBr(filtroDataInicioIso)} <span style="color:#c2c2c2">–</span> ${isoParaBr(filtroDataFimIso)} <span style="color:#b5b5b5">(${dias} ${dias === 1 ? 'dia' : 'dias'})</span>`;
+            }
+        }
+
+        function renderizarDashboard(dados) {
+            if (dados && dados.aviso_saf && !avisoSafDashMostrado) {
+                avisoSafDashMostrado = true;
+                adicionarNotificacaoUpload(dados.aviso_saf, '#e67e22');
+            }
+            // Sem solicitacao, mas com cobertura de ferias do SAF: os quadros de quem cobriu seguem aparecendo.
+            if (!dados || (dados.total_solicitacoes === 0 && dados.top_cobriram.length === 0)) {
+                ['status', 'dias', 'motivo', 'semana', 'cobriram', 'ausencias', 'base', 'glosa'].forEach(id => {
+                    document.getElementById(`dash-${id}-grafico`).innerHTML =
+                        '<div class="dash-vazio">Nenhuma solicitação nesse período/filtro.</div>';
+                });
+                document.getElementById('dash-glosa-total').textContent = formatarMoeda(0);
+                return;
+            }
+
+            renderizarBarraEmpilhada('status', [
+                { rotulo: 'Aberta', valor: dados.status_contagem.aberta, cor: COR_ROXO },
+                { rotulo: 'Parcialmente coberta', valor: dados.status_contagem.parcial, cor: COR_LARANJA },
+                { rotulo: 'Fechada', valor: dados.status_contagem.fechada, cor: COR_TEAL },
+            ]);
+
+            renderizarBarraEmpilhada('dias', [
+                { rotulo: 'Aberta', valor: dados.solicitacoes_contagem.aberta, cor: COR_ROXO },
+                { rotulo: 'Fechada sem cobertura', valor: dados.solicitacoes_contagem.fechada_sem_cobertura, cor: COR_LARANJA },
+                { rotulo: 'Fechada com cobertura', valor: dados.solicitacoes_contagem.fechada_com_cobertura, cor: COR_TEAL },
+            ]);
+
+            renderizarGraficoColunas('motivo', [
+                { rotulo: 'Falta', valor: dados.motivo_contagem.falta, cor: COR_ROXO },
+                { rotulo: 'Atestado', valor: dados.motivo_contagem.atestado, cor: COR_LARANJA },
+                { rotulo: 'Serviço extra', valor: dados.motivo_contagem.servico_extra, cor: COR_AZUL },
+                // Afastamento soma o automatico (atestado de mais de 15 dias) e o da Nova Solicitacao (afastamento_indeterminado): na
+                // lista de Solicitacoes os dois tambem aparecem como AFASTAMENTO.
+                { rotulo: 'Afastamento', valor: dados.motivo_contagem.afastamento + dados.motivo_contagem.afastamento_indeterminado, cor: COR_TEAL },
+                { rotulo: 'Desligamento', valor: dados.motivo_contagem.desligamento, cor: COR_CINZA },
+            ], 'Motivo');
+
+            renderizarGraficoColunas('semana', dados.dias_semana.map((v, i) => (
+                { rotulo: NOMES_DIA_SEMANA[i], valor: v, cor: COR_AZUL }
+            )), 'Dia da semana');
+
+            renderizarRanking('cobriram', dados.top_cobriram, COR_TEAL, 'dias cobertos');
+            renderizarRanking('ausencias', dados.top_ausencias, COR_LARANJA, 'dias solicitados');
+            renderizarRanking('base', dados.quem_ficou_base, COR_ROXO, 'dias sem cobertura');
+            renderizarRankingGlosa(dados.top_glosa, dados.total_glosa, COR_CRITICO);
+        }
+
+        // formatarMoeda() vem do backend/filtro.js.
+
+        // ---- Ranking de Glosa por posto (diaria dos titulares ausentes sem cobertura, somada por centro de custo; ver
+        // top_glosa/total_glosa em backend/api/dashboard.php) ----
+        function renderizarRankingGlosa(linhas, total, cor) {
+            const container = document.getElementById('dash-glosa-grafico');
+            container.innerHTML = '';
+
+            document.getElementById('dash-glosa-total').textContent = formatarMoeda(total);
+
+            if (!linhas || linhas.length === 0) {
+                container.innerHTML = '<div class="dash-vazio">Sem dados nesse período/filtro.</div>';
+                montarTabelaSimples('glosa', ['Posto', 'Valor', 'Colaboradores afetados'], []);
+                return;
+            }
+
+            const max = Math.max(...linhas.map(l => l.valor)) || 1;
+            linhas.forEach(l => {
+                const linha = document.createElement('div');
+                linha.className = 'dash-ranking-linha dash-glosa-linha';
+
+                const nomeCol = document.createElement('span');
+                const nome = document.createElement('span');
+                nome.className = 'dash-ranking-nome';
+                const seta = document.createElement('span');
+                seta.className = 'dash-glosa-seta';
+                seta.textContent = '▸';
+                nome.appendChild(seta);
+                nome.appendChild(document.createTextNode(l.rotulo));
+                nome.title = l.rotulo;
+                const sub = document.createElement('span');
+                sub.className = 'dash-ranking-funcao';
+                sub.textContent = `${l.colaboradores} colaborador(es)`;
+                nomeCol.appendChild(nome);
+                nomeCol.appendChild(sub);
+
+                const trilha = document.createElement('div');
+                trilha.className = 'dash-ranking-trilha';
+                const barra = document.createElement('div');
+                barra.className = 'dash-ranking-barra';
+                barra.style.width = `${(l.valor / max) * 100}%`;
+                barra.style.background = cor;
+                barra.addEventListener('mousemove', (e) => mostrarTooltip(e, `${l.rotulo}: ${formatarMoeda(l.valor)} · ${l.colaboradores} colaborador(es)`));
+                barra.addEventListener('mouseleave', esconderTooltip);
+                trilha.appendChild(barra);
+
+                const valor = document.createElement('span');
+                valor.className = 'dash-ranking-valor';
+                valor.textContent = formatarMoeda(l.valor);
+                valor.style.color = cor;
+
+                linha.appendChild(nomeCol);
+                linha.appendChild(trilha);
+                linha.appendChild(valor);
+                container.appendChild(linha);
+
+                // Detalhe por funcao: construido uma vez, escondido, so alternado ao clicar (os dados de "funcoes" ja vieram em acao=resumo)
+                const detalhe = document.createElement('div');
+                detalhe.className = 'dash-glosa-detalhe';
+                detalhe.style.display = 'none';
+                if (!l.funcoes || l.funcoes.length === 0) {
+                    detalhe.innerHTML = '<div class="dash-glosa-detalhe-linha"><span>Sem funcao identificada.</span></div>';
+                } else {
+                    l.funcoes.forEach(f => {
+                        const linhaF = document.createElement('div');
+                        linhaF.className = 'dash-glosa-detalhe-linha';
+                        const nomeF = document.createElement('span');
+                        nomeF.className = 'dash-glosa-funcao';
+                        nomeF.textContent = f.funcao;
+                        nomeF.title = f.funcao;
+                        const valorF = document.createElement('span');
+                        valorF.className = 'dash-glosa-valor';
+                        valorF.textContent = `${f.dias} dia(s) · ${formatarMoeda(f.valor)}`;
+                        linhaF.appendChild(nomeF);
+                        linhaF.appendChild(valorF);
+                        detalhe.appendChild(linhaF);
+                    });
+                }
+                container.appendChild(detalhe);
+
+                linha.addEventListener('click', () => {
+                    const abrir = detalhe.style.display === 'none';
+                    detalhe.style.display = abrir ? '' : 'none';
+                    linha.classList.toggle('aberta', abrir);
+                });
+            });
+
+            montarTabelaSimples('glosa', ['Posto', 'Valor', 'Colaboradores afetados'],
+                linhas.map(l => [l.rotulo, formatarMoeda(l.valor), l.colaboradores]));
+        }
+
+        // ---- Barra empilhada (status / dias) + legenda sempre visivel ----
+        function renderizarBarraEmpilhada(tipo, segmentos) {
+            const total = segmentos.reduce((soma, s) => soma + s.valor, 0);
+            const container = document.getElementById(`dash-${tipo}-grafico`);
+            container.innerHTML = '';
+
+            const barra = document.createElement('div');
+            barra.className = 'dash-barra-empilhada';
+
+            const legenda = document.createElement('div');
+            legenda.className = 'dash-legenda';
+
+            segmentos.forEach((seg, i) => {
+                if (seg.valor > 0) {
+                    const div = document.createElement('div');
+                    div.className = 'dash-segmento';
+                    div.style.background = seg.cor;
+                    div.style.width = `${(seg.valor / total) * 100}%`;
+                    // 2px de vao entre segmentos, so entre os do meio
+                    if (i > 0) div.style.marginLeft = '2px';
+                    div.addEventListener('mousemove', (e) => mostrarTooltip(e, `${seg.rotulo}: ${seg.valor}`));
+                    div.addEventListener('mouseleave', esconderTooltip);
+                    barra.appendChild(div);
+                }
+            });
+            container.appendChild(barra);
+            container.appendChild(legenda);
+
+            segmentos.forEach(seg => {
+                const pct = total > 0 ? Math.round((seg.valor / total) * 100) : 0;
+                const item = document.createElement('div');
+                item.className = 'dash-legenda-item';
+                const swatch = document.createElement('span');
+                swatch.className = 'dash-legenda-swatch';
+                swatch.style.background = seg.cor;
+                item.appendChild(swatch);
+                const texto = document.createElement('span');
+                texto.textContent = `${seg.rotulo}: `;
+                const valorSpan = document.createElement('span');
+                valorSpan.className = 'dash-legenda-valor';
+                valorSpan.textContent = String(seg.valor);
+                const pctSpan = document.createElement('span');
+                pctSpan.className = 'dash-legenda-pct';
+                pctSpan.textContent = ` (${pct}%)`;
+                item.appendChild(texto);
+                item.appendChild(valorSpan);
+                item.appendChild(pctSpan);
+                legenda.appendChild(item);
+            });
+
+            montarTabelaSimples(tipo, ['Situação', 'Quantidade', '%'],
+                segmentos.map(s => [s.rotulo, s.valor, total > 0 ? `${Math.round((s.valor / total) * 100)}%` : '0%']));
+        }
+
+        // ---- Grafico de barras verticais (dias da semana) ----
+        // O teto do eixo precisa ficar estritamente acima do maior valor, senao o rotulo da barra colide com o do eixo.
+        function arredondarEixo(valorMax) {
+            if (valorMax < 5) return 5;
+            const passo = Math.pow(10, Math.floor(Math.log10(valorMax)));
+            let teto = Math.ceil(valorMax / passo) * passo;
+            if (teto === valorMax) teto += passo;
+            return teto;
+        }
+
+        // categorias: [{ rotulo, valor, cor }] - usado em dias da semana (7 colunas) e motivo (5 colunas, 1 cor por motivo).
+        function renderizarGraficoColunas(tipo, categorias, cabecalhoTabela) {
+            const container = document.getElementById(`dash-${tipo}-grafico`);
+            container.innerHTML = '';
+
+            const n = categorias.length;
+            const max = arredondarEixo(Math.max(...categorias.map(c => c.valor), 1));
+            const larguraSvg = 460, alturaSvg = 190, alturaPlot = 140, margemEsq = 28, margemDir = 10, margemTopo = 10;
+            const larguraUtil = larguraSvg - margemEsq - margemDir;
+            const larguraBarra = Math.min(28, larguraUtil / n - 10);
+
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', `0 0 ${larguraSvg} ${alturaSvg}`);
+            svg.setAttribute('class', 'dash-eixo-svg');
+            svg.style.width = '100%';
+            svg.style.height = 'auto';
+
+            // Linhas de grade horizontais (4 faixas)
+            for (let i = 0; i <= 4; i++) {
+                const y = margemTopo + alturaPlot - (alturaPlot * i / 4);
+                const linha = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                linha.setAttribute('x1', margemEsq); linha.setAttribute('x2', larguraSvg - margemDir);
+                linha.setAttribute('y1', y); linha.setAttribute('y2', y);
+                linha.setAttribute('class', 'dash-grade-linha');
+                svg.appendChild(linha);
+
+                const rotulo = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                rotulo.setAttribute('x', margemEsq - 6); rotulo.setAttribute('y', y + 3);
+                rotulo.setAttribute('text-anchor', 'end');
+                rotulo.textContent = Math.round(max * i / 4);
+                svg.appendChild(rotulo);
+            }
+
+            categorias.forEach((cat, i) => {
+                const centroX = margemEsq + (larguraUtil / n) * i + (larguraUtil / n) / 2;
+                const alturaBarra = (cat.valor / max) * alturaPlot;
+                const yTopo = margemTopo + alturaPlot - alturaBarra;
+
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', centroX - larguraBarra / 2);
+                rect.setAttribute('y', yTopo);
+                rect.setAttribute('width', larguraBarra);
+                rect.setAttribute('height', Math.max(alturaBarra, 0));
+                rect.setAttribute('rx', 4);
+                rect.setAttribute('fill', cat.cor);
+                rect.addEventListener('mousemove', (e) => mostrarTooltip(e, `${cat.rotulo}: ${cat.valor}`));
+                rect.addEventListener('mouseleave', esconderTooltip);
+                svg.appendChild(rect);
+
+                if (cat.valor > 0) {
+                    const valorTexto = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    valorTexto.setAttribute('x', centroX);
+                    valorTexto.setAttribute('y', yTopo - 5);
+                    valorTexto.setAttribute('text-anchor', 'middle');
+                    valorTexto.setAttribute('font-weight', 'bold');
+                    valorTexto.setAttribute('fill', '#2b2b2b');
+                    valorTexto.textContent = cat.valor;
+                    svg.appendChild(valorTexto);
+                }
+
+                const rotuloCat = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                rotuloCat.setAttribute('x', centroX);
+                rotuloCat.setAttribute('y', margemTopo + alturaPlot + 16);
+                rotuloCat.setAttribute('text-anchor', 'middle');
+                rotuloCat.textContent = cat.rotulo;
+                svg.appendChild(rotuloCat);
+            });
+
+            container.appendChild(svg);
+
+            montarTabelaSimples(tipo, [cabecalhoTabela, 'Quantidade'],
+                categorias.map(c => [c.rotulo, c.valor]));
+        }
+
+        // Encurta a funcao pra caber ao lado do contador de lancamentos (o CSS corta com ellipsis); o title/tooltip mantem a funcao inteira.
+        function abreviarFuncao(funcao, maxChars = 20) {
+            if (!funcao || funcao.length <= maxChars) return funcao || '-';
+            return funcao.slice(0, maxChars).trimEnd() + '…';
+        }
+
+        // ---- Ranking (top cobriram / top ausencias / quem ficou de base) ----
+        function renderizarRanking(tipo, linhas, cor, rotuloColuna) {
+            const container = document.getElementById(`dash-${tipo}-grafico`);
+            container.innerHTML = '';
+
+            // "quantidade" (numero de solicitacoes, distinto de "dias") so vem em "Quem mais se ausentou" (backend/api/dashboard.php);
+            // nos outros rankings fica undefined e a coluna nao aparece.
+            const temQuantidade = linhas && linhas.some(l => l.quantidade !== undefined);
+
+            if (!linhas || linhas.length === 0) {
+                container.innerHTML = '<div class="dash-vazio">Sem dados nesse período/filtro.</div>';
+                const cabecalhos = ['Nome', 'Função', 'Matrícula', rotuloColuna];
+                if (temQuantidade) cabecalhos.push('Ausências lançadas');
+                montarTabelaSimples(tipo, cabecalhos, []);
+                return;
+            }
+
+            // "|| 1": com "quem ficou de base" o maior valor pode ser 0; sem isso a largura da barra vira NaN%.
+            const max = Math.max(...linhas.map(l => l.dias)) || 1;
+            linhas.forEach(l => {
+                const linha = document.createElement('div');
+                linha.className = 'dash-ranking-linha';
+
+                const nomeCol = document.createElement('span');
+                const nome = document.createElement('span');
+                nome.className = 'dash-ranking-nome';
+                nome.textContent = l.nome;
+                nome.title = l.nome;
+                // Com a quantidade de lancamentos, a funcao fica ainda mais curta ("lanc.") pra caber na coluna estreita (150px).
+                const funcaoAbreviada = abreviarFuncao(l.funcao, l.quantidade !== undefined ? 12 : 20);
+                const funcao = document.createElement('span');
+                funcao.className = 'dash-ranking-funcao';
+                funcao.textContent = l.quantidade !== undefined
+                    ? `${funcaoAbreviada} · ${l.quantidade} lanç.`
+                    : funcaoAbreviada;
+                funcao.title = l.funcao || '-';
+                nomeCol.appendChild(nome);
+                nomeCol.appendChild(funcao);
+
+                const trilha = document.createElement('div');
+                trilha.className = 'dash-ranking-trilha';
+                const barra = document.createElement('div');
+                barra.className = 'dash-ranking-barra';
+                barra.style.width = `${(l.dias / max) * 100}%`;
+                barra.style.background = cor;
+                const detalheQuantidade = l.quantidade !== undefined ? ` · ${l.quantidade} ausência(s) lançada(s)` : '';
+                barra.addEventListener('mousemove', (e) => mostrarTooltip(e, `${l.nome} (${l.matricula}) - ${l.funcao || '-'}: ${l.dias} ${rotuloColuna}${detalheQuantidade}`));
+                barra.addEventListener('mouseleave', esconderTooltip);
+                trilha.appendChild(barra);
+
+                const valor = document.createElement('span');
+                valor.className = 'dash-ranking-valor';
+                valor.textContent = l.dias;
+                valor.style.color = cor;
+
+                linha.appendChild(nomeCol);
+                linha.appendChild(trilha);
+                linha.appendChild(valor);
+                container.appendChild(linha);
+            });
+
+            const cabecalhos = ['Nome', 'Função', 'Matrícula', rotuloColuna];
+            const linhasTabela = linhas.map(l => [l.nome, l.funcao || '-', l.matricula, l.dias]);
+            if (temQuantidade) {
+                cabecalhos.push('Ausências lançadas');
+                linhas.forEach((l, i) => linhasTabela[i].push(l.quantidade));
+            }
+            montarTabelaSimples(tipo, cabecalhos, linhasTabela);
+        }
+
+        // ---- Tabela (equivalente acessivel de cada grafico) ----
+        // 2 <table> separadas (cabecalho fixo + corpo rolavel, ver .dash-tabela-wrap no <style>); <colgroup> gerado aqui porque
+        // o numero de colunas muda conforme "tipo".
+        function montarTabelaSimples(tipo, cabecalhos, linhas) {
+            const wrap = document.getElementById(`dash-${tipo}-tabela`);
+            wrap.innerHTML = '';
+
+            const larguraCol = (100 / cabecalhos.length).toFixed(4) + '%';
+            const criarColgroup = () => {
+                const colgroup = document.createElement('colgroup');
+                cabecalhos.forEach(() => {
+                    const col = document.createElement('col');
+                    col.style.width = larguraCol;
+                    colgroup.appendChild(col);
+                });
+                return colgroup;
+            };
+
+            const cabecalhoWrap = document.createElement('div');
+            cabecalhoWrap.className = 'dash-tabela-cabecalho';
+            const tabelaCab = document.createElement('table');
+            tabelaCab.className = 'dash-tabela';
+            tabelaCab.appendChild(criarColgroup());
+            const thead = document.createElement('thead');
+            const trCab = document.createElement('tr');
+            cabecalhos.forEach(c => {
+                const th = document.createElement('th');
+                th.textContent = c;
+                trCab.appendChild(th);
+            });
+            thead.appendChild(trCab);
+            tabelaCab.appendChild(thead);
+            cabecalhoWrap.appendChild(tabelaCab);
+
+            const corpoWrap = document.createElement('div');
+            corpoWrap.className = 'dash-tabela-corpo';
+            const tabelaCorpo = document.createElement('table');
+            tabelaCorpo.className = 'dash-tabela';
+            tabelaCorpo.appendChild(criarColgroup());
+            const tbody = document.createElement('tbody');
+            linhas.forEach(valores => {
+                const tr = document.createElement('tr');
+                valores.forEach(v => {
+                    const td = document.createElement('td');
+                    td.textContent = v;
+                    td.title = v;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            if (linhas.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = cabecalhos.length;
+                td.textContent = 'Sem dados.';
+                td.style.color = '#999';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+            }
+            tabelaCorpo.appendChild(tbody);
+            corpoWrap.appendChild(tabelaCorpo);
+
+            wrap.appendChild(cabecalhoWrap);
+            wrap.appendChild(corpoWrap);
+        }
+
+        function alternarTabela(tipo, evento) {
+            const grafico = document.getElementById(`dash-${tipo}-grafico`);
+            const tabela = document.getElementById(`dash-${tipo}-tabela`);
+            const mostrarTabela = tabela.style.display === 'none';
+            tabela.style.display = mostrarTabela ? 'block' : 'none';
+            grafico.style.display = mostrarTabela ? 'none' : '';
+            evento.target.textContent = mostrarTabela ? 'Ver gráfico' : 'Ver tabela';
+        }
+
+        // "Quem mais cobriu dias" e "Quem mais ficou de base" so fazem sentido pra quem gerencia volantes (Gestor/RH); o
+        // backend ja devolve os 2 vazios pro Preposto. A linha de ranking tem 3 colunas fixas (grid): com 2 cartoes escondidos
+        // sobraria espaco vazio, entao forca 1 coluna.
+        //
+        // "Glosa por posto" continua visivel pro Preposto (ja vem escopada ao proprio centro no backend).
+        function aplicarCartoesPorPapel() {
+            if (!souPreposto()) return;
+            ['dash-card-cobriram', 'dash-card-base'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            const linhaRanking = document.getElementById('dash-linha-ranking');
+            if (linhaRanking) linhaRanking.style.gridTemplateColumns = '1fr';
+        }
+
+        async function iniciar() {
+            aplicarCartoesPorPapel();
+            montarPresets();
+            // Nomes de centro de custo (formatarCentroCusto, backend/filtro.js) em paralelo com os centros do usuario; centros
+            // primeiro no await (garantirFuncoes depende de centrosSelecionados), so entao escolhe o preset inicial (dispara
+            // garantirFuncoes + carregarDashboard).
+            garantirDescricoesCentroCusto();
+            await garantirCentrosCusto();
+            selecionarPreset('30');
+        }
+
+        iniciar();
+    </script>
+</body>
+</html>

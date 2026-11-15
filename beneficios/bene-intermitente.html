@@ -1,0 +1,1086 @@
+<!DOCTYPE html> 
+<html lang="pt-br"> 
+
+<head>
+    <meta charset="UTF-8"> 
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+          
+    <title>Benefícios - Intermitente — CGV</title>
+    <link rel="icon" type="image/png" sizes="96x96" href="../frontend/img/favicon.png">
+    <link rel="stylesheet" href="../frontend/style.css?v=b3668feb">
+
+
+    <script src="../backend/filtro.js?v=fab90393"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <script src="../backend/hostinger-storage.js?v=2803bcf0"></script>
+    <script>
+        // So RH usa Beneficios (o servidor ja restringe, vt_valores em dados.php e RH-only); isto so evita que Gestor/Preposto vejam a tela montada por um instante (como em usuarios.html).
+        if (window.self === window.top && (typeof souRH !== 'function' || !souRH())) {
+            window.location.href = '../colaboradores/funcionarios.html';
+        }
+    </script>
+
+</head>
+
+<body class="pagina-intermitentes">
+
+    <div id="sidebar" class="sidebar">
+        <!-- Botoes de editar/adicionar/remover ao lado do titulo, com a tabela de optantes encostada no traco do titulo. display:none inicial (como carregarValoresVTMenu, que so revela quando ha dado). -->
+        <!-- Valor PADRAO do Vale Alimentacao (vem do banco, carregarValorVa/backend/api/valor-va.php): lapis a esquerda, caixa travada a direita; o lapis destrava e vira SALVAR. -->
+        <h2 class="menu-titulo"
+            style="border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 26px; font-size: 1.4rem; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <span>VALE ALIMENTAÇÃO</span>
+            <div class="grupo-va">
+                <button id="btn-editar-va" class="btn-lapis" title="Editar o valor padrão do Vale Alimentação">✎</button>
+                <label class="campo-va" id="caixa-valor-va">
+                    <span class="moeda">R$</span>
+                    <input type="text" id="input-valor-va" inputmode="decimal" maxlength="8" value="" readonly
+                           aria-label="Valor padrão do Vale Alimentação, em reais">
+                </label>
+            </div>
+        </h2>
+
+        <h2 class="menu-titulo"
+            style="border-bottom: 2px solid #000; padding-bottom: 10px; font-size: 1.4rem; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <span>VALE TRANSPORTE</span>
+            <div class="rodape-acoes-left"
+                 id="container-btn-edit-vt"
+                 style="display: none;">
+                <button id="btn-editar-vt" class="btn-lapis" title="Editar Optantes">✎</button>
+                <button id="btn-adicionar-vt" class="btn-add" title="Adicionar Novo Trabalhador">+</button>
+                <button id="btn-remover-vt" class="btn-remove" title="Apagar Trabalhador">-</button>
+            </div>
+        </h2>
+
+        <div id="menu-content-vt">
+            <p style="color: #999;">Carregando dados...</p>
+        </div>
+    </div>
+
+    <div id="overlay" class="overlay" onclick="toggleMenu()"></div>
+
+    <nav class="hotbar">
+        <div class="hotbar-nav">
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-colab')">COLABORADORES</button>
+            <div class="hotbar-dropdown-content" id="drop-colab">
+                <a href="../colaboradores/funcionarios.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2"/><path d="M5.8 15.5c.5-1.6 1.6-2.4 2.7-2.4s2.2.8 2.7 2.4"/><path d="M13.5 9.5h5M13.5 13h5"/></svg><div class="item-textos"><b>Funcionarios</b><span class="item-desc">Colaboradores da minha gestao</span></div></a>
+                <a href="../coberturas/dashboard.html" class="item-premium" id="item-dashboard-gestor" style="display:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.3"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.3"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.3"/></svg><div class="item-textos"><b>Dashboard</b><span class="item-desc">Indicadores e visao geral da equipe</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" id="item-localizacao-ponto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.7 7-12.2A7 7 0 1 0 5 8.8C5 14.3 12 21 12 21Z"/><circle cx="12" cy="8.7" r="2.4"/></svg><div class="item-textos"><b>Localizacao - Ponto</b><span class="item-desc">Local e ponto do colaborador</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-cob')">COBERTURAS</button>
+            <div class="hotbar-dropdown-content" id="drop-cob">
+                <a href="../coberturas/solicitacao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4"/><path d="M9.3 12.2h5.4M9.3 15.6h5.4M9.3 8.8h2"/></svg><div class="item-textos"><b>Solicitacoes</b><span class="item-desc">Pedidos de cobertura</span></div></a>
+                <a href="../coberturas/previsao.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 6h6v6"/></svg><div class="item-textos"><b>Previsao</b><span class="item-desc">Projecao e historico de cobertura de ferias</span></div></a>
+                <a href="javascript:void(0)" class="item-premium" onclick="abrirModalNotificacao()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2a5 5 0 0 0-5 5v3.3c0 .9-.35 1.75-1 2.4l-.8.8h13.6l-.8-.8c-.65-.65-1-1.5-1-2.4V8.2a5 5 0 0 0-5-5Z"/><path d="M9.6 18.2a2.4 2.4 0 0 0 4.8 0"/></svg><div class="item-textos"><b>Notificacao</b><span class="item-desc">Avisar responsavel</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn" onclick="toggleHotbarDropdown(event, 'drop-fopag')">FOPAG</button>
+            <div class="hotbar-dropdown-content" id="drop-fopag">
+                <a href="../fopag/pfm-volantes.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Volantes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+                <a href="../fopag/pfm-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.3h.01M18 14.7h.01"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Folha de pagamento mensal</span></div></a>
+            </div>
+        </div>
+
+        <div class="hotbar-dropdown-container">
+            <button class="hotbar-btn active" onclick="toggleHotbarDropdown(event, 'drop-ben')">BENEFICIOS</button>
+            <div class="hotbar-dropdown-content" id="drop-ben">
+                <a href="../beneficios/bene-intermitente.html" class="item-premium"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 2.8v4M16 2.8v4"/><path d="M3.5 9.8h17"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg><div class="item-textos"><b>Intermitentes</b><span class="item-desc">Beneficios do intermitente</span></div></a>            </div>
+        </div>
+
+        </div>
+        <div class="hotbar-util">
+            <button class="btn-sino" onclick="toggleNotificacoes()">
+                🔔<div class="badge-notificacao" id="badge-sino" style="display: none;">0</div>
+            </button>
+        </div>
+    </nav>
+
+    <div class="painel-notificacoes" id="painel-notificacoes">
+        <div class="painel-header">
+            <h3>ALERTAS</h3>
+        </div>
+        <div class="lista-notificacoes" id="lista-notificacoes">
+            <div class="notificacao-vazia">Nenhum alerta.</div>
+        </div>
+    </div>
+
+    <div class="conteudo-principal">
+        
+        <div class="controles-superiores">
+            <div class="import-container">
+                <label for="input-excel" class="btn-arquivo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M7.5 8.5 12 4l4.5 4.5"/><path d="M5 19.5h14"/></svg>Importar planilha</label>
+                <input type="file" id="input-excel" accept=".xlsx, .xls, .xlsb, .xlsm, .ods" style="display:none">
+            </div>
+
+            <!-- Abre a gaveta de Vale Transporte. Filho normal de .controles-superiores: fica na mesma linha/altura do botao "Importar planilha", rola com a pagina e nunca sobrepoe a tabela. -->
+            <button class="btn-hamburguer" onclick="toggleMenu()">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+
+        <div id="cabecalho-resultado" class="header-planilha">
+            <h2 class="titulo-relatorio">RELATORIO DE PAGAMENTO INTERMITENTES</h2>
+            <p class="info-cabecalho" id="info-mes">Mês referente: -</p>
+            <p class="info-cabecalho">Frente de serviço: INTERMITENTES</p>
+            <!-- Clicavel pra editar (editarDataPagamento/confirmarDataPagamento). Enquanto nao editada, e recalculada (hoje + 3 dias) a cada renderizarTabelaFinal (ver dataPagamentoManual). -->
+            <p class="info-cabecalho" id="info-pagamento" onclick="editarDataPagamento()"
+               style="cursor:pointer;" title="Clique para editar a data de pagamento">Data de pagamento: -</p>
+        </div>
+
+        <!-- Cabecalho fixo fora da area de rolagem (como colaboradores/funcionarios.html e fopag/pfm-volantes.html): 2 tabelas separadas evitam o bug de repintura do Chromium/Edge do thead sticky.
+             O cabecalho tem 2 linhas (colspan/rowspan, renderizarCabecalhoTabela), por isso as larguras usam <colgroup> (sincronizarColgroupIntermitente): com colspan os <th> nao correspondem 1-pra-1 aos <td>, e o colgroup conta a coluna fisica. -->
+        <div id="container-dados" class="tabela-visualizacao tabela-refinada">
+            <div class="tabela-cabecalho-fixo">
+                <table>
+                    <colgroup id="colgroup-cabecalho-int"></colgroup>
+                    <thead id="table-header"></thead>
+                </table>
+            </div>
+            <div class="tabela-corpo-rolavel">
+                <table>
+                    <colgroup id="colgroup-corpo-int"></colgroup>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="rodape-acoes" id="container-btn-edit-tabela" style="display: none;">
+            
+            <div class="rodape-acoes-left">
+                <button id="btn-editar-tabela" class="btn-lapis" 
+                        title="Ajuste Manual Rápido">✎</button>
+                        
+                <button id="btn-adicionar-linha" class="btn-add" 
+                        title="Inserir Pessoa Em Falta">+</button>
+                        
+                <button id="btn-remover-linha" class="btn-remove" 
+                        title="Apagar Registro Errado">-</button>
+            </div>
+            
+            <div class="rodape-acoes-right">
+                <button id="btn-exportar-planilha" class="btn-arquivo"
+                        onclick="exportarTabelaExcel()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7.5 11.5 12 16l4.5-4.5"/><path d="M5 19.5h14"/></svg>Exportar planilha
+                </button>
+                
+                <button id="btn-enviar-email" class="btn-email" 
+                        title="Enviar e-mail para Processamento">✉</button>
+            </div>
+            
+        </div>
+    </div>
+    
+    <script>
+        // toggleHotbarDropdown/mostrarToast/reposicionarToasts/toggleNotificacoes/renderizarNotificacoes/adicionarNotificacaoUpload vem de backend/filtro.js (compartilhado).
+
+        // Valor padrao do Vale Alimentacao - vem do banco (carregarValorVa,
+        // logo abaixo), alterado pelo RH na gaveta. null = ainda nao carregou
+        // (ou falhou): nesse caso a importacao da planilha e barrada, pra
+        // nunca calcular com um valor chutado.
+        let VALOR_VA_FIXO = null;
+        const NOME_TEMPLATE = 'intermitente/relatorio_pagamento_temporario.xlsx'; 
+
+        // Memórias de operação do sistema central
+        let dadosColaboradoresGlobal = {};
+        let modoEdicaoTabela = false;
+        let modoExclusaoVisivel = false;
+        let qtdLinhasNovas = 0;
+
+        // Data de pagamento (ISO yyyy-mm-dd) escolhida manualmente pelo
+        // usuario, clicando em cima do texto (ver editarDataPagamento) -
+        // null = nenhuma escolha ainda, continua caindo no calculo
+        // automatico de sempre (hoje + 3 dias, ver aplicarDataPagamentoNaTela).
+        let dataPagamentoManual = null;
+
+        let mapeamentoVTGlobal = {};
+        let nomesVTGlobal = {};
+        let optanteVTGlobal = {};
+        let modoEdicaoVT = false;
+        let modoExclusaoVisivelVT = false;  
+        let qtdLinhasNovasVT = 0;
+
+        window.onload = function() {
+            renderizarNotificacoes();
+            carregarValoresVTMenu();
+            // Cabecalho verde e cartao "RELATORIO DE PAGAMENTO" visiveis antes de importar; Mes referente/Data de pagamento ficam no "-" do HTML ate a planilha ser processada (renderizarTabelaFinal troca pelo valor real).
+            renderizarCabecalhoTabela();
+            document.getElementById('cabecalho-resultado').style.display = 'block';
+        };
+
+        window.onclick = function(e) {
+            
+            // Controle dos botoes da hotbar
+            const isBotaoHotbar = e.target.matches('.hotbar-btn');
+            const isDentroHotbar = e.target.closest('.hotbar-dropdown-content');
+            
+            if (!isBotaoHotbar && !isDentroHotbar) {
+                const listasHotbar = document.querySelectorAll('.hotbar-dropdown-content');
+                listasHotbar.forEach(lista => {
+                    lista.classList.remove('show');
+                });
+            }
+
+            // Controle do sino e da gaveta de alertas
+            const painel = document.getElementById('painel-notificacoes');
+            const btnSino = document.querySelector('.btn-sino');
+            
+            const clicouForaPainel = !painel.contains(e.target);
+            const clicouForaSino = (!btnSino || !btnSino.contains(e.target));
+            
+            if (painel && painel.classList.contains('show')) {
+                if (clicouForaPainel && clicouForaSino) {
+                    painel.classList.remove('show'); 
+                    reposicionarToasts(); 
+                }
+            }
+        };
+
+        // normalizarMatricula()/formatarMoeda() vem de backend/filtro.js (compartilhado).
+
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('active'); 
+            document.getElementById('overlay').classList.toggle('active'); 
+        }
+
+        // ==========================================
+        // 4.4 MOTORES DO MENU VALE TRANSPORTE (SIDEBAR)
+        // ==========================================
+        // ==========================================
+        // 4.3 VALOR PADRAO DO VALE ALIMENTACAO (SIDEBAR)
+        // ==========================================
+        const formatarValorVa = (v) => v.toFixed(2).replace('.', ',');
+
+        async function carregarValorVa() {
+            try {
+                VALOR_VA_FIXO = await dbValorVa();
+                document.getElementById('input-valor-va').value = formatarValorVa(VALOR_VA_FIXO);
+            } catch (e) {
+                VALOR_VA_FIXO = null;
+                document.getElementById('input-valor-va').value = '';
+                mostrarToast('Não foi possível carregar o valor do Vale Alimentação: ' + e.message, '#e74c3c');
+            }
+        }
+
+        // Chamado ja aqui, sem esperar o window.onload: o onload so dispara
+        // depois de TODOS os recursos externos (a biblioteca de planilha vem
+        // de CDN) e a caixa ficava vazia nesse meio tempo.
+        carregarValorVa();
+
+        // So digitos e uma virgula, com no maximo 2 casas - o "R$" e um
+        // rotulo fixo fora do campo, nao da pra apagar.
+        document.getElementById('input-valor-va').addEventListener('input', function() {
+            let v = this.value.replace(/[^0-9,]/g, '');
+            const partes = v.split(',');
+            if (partes.length > 1) v = partes[0] + ',' + partes.slice(1).join('').slice(0, 2);
+            this.value = v;
+        });
+
+        let modoEdicaoVA = false;
+        function travarCampoVa() {
+            modoEdicaoVA = false;
+            const btn = document.getElementById('btn-editar-va');
+            const campo = document.getElementById('input-valor-va');
+            campo.readOnly = true;
+            campo.value = VALOR_VA_FIXO === null ? '' : formatarValorVa(VALOR_VA_FIXO);
+            document.getElementById('caixa-valor-va').classList.remove('editando');
+            btn.innerHTML = '✎';
+            btn.style.backgroundColor = '';
+        }
+
+        document.getElementById('btn-editar-va').addEventListener('click', async function() {
+            const campo = document.getElementById('input-valor-va');
+            if (!modoEdicaoVA) {
+                if (VALOR_VA_FIXO === null) {
+                    mostrarToast('O valor do Vale Alimentação não foi carregado. Recarregue a página.', '#e74c3c');
+                    return;
+                }
+                modoEdicaoVA = true;
+                campo.readOnly = false;
+                document.getElementById('caixa-valor-va').classList.add('editando');
+                this.innerHTML = 'SALVAR';
+                this.style.backgroundColor = '#27ae60'; // mesmo verde do lapis do Vale Transporte em edicao
+                campo.focus();
+                campo.select();
+                return;
+            }
+
+            const novo = Math.round(parseFloat(campo.value.replace(',', '.')) * 100) / 100;
+            if (!novo || novo <= 0) {
+                mostrarToast('Informe um valor maior que zero.', '#e74c3c');
+                campo.focus();
+                return;
+            }
+            // Salvar sem alterar nada so trava de novo (e o jeito de desistir).
+            if (Math.abs(novo - VALOR_VA_FIXO) < 0.005) { travarCampoVa(); return; }
+
+            // Com planilha ja importada, o valor novo so entra recarregando a
+            // pagina e importando de novo (decisao do usuario, 2026-10-13).
+            const temPlanilha = Object.keys(dadosColaboradoresGlobal).length > 0;
+            if (temPlanilha && !confirm('Salvar o novo valor vai recarregar a página, e a planilha precisará ser importada de novo. Continuar?')) return;
+
+            this.disabled = true;
+            try {
+                VALOR_VA_FIXO = await dbValorVa(novo, VALOR_VA_FIXO);
+                if (temPlanilha) { window.location.reload(); return; }
+                travarCampoVa();
+                mostrarToast('Valor do Vale Alimentação salvo: R$ ' + formatarValorVa(VALOR_VA_FIXO), '#27ae60');
+            } catch (e) {
+                // Inclui o caso de outra pessoa ter alterado antes (o servidor
+                // recusa e a mensagem ja diz pra recarregar).
+                mostrarToast(e.message, '#e74c3c');
+            } finally {
+                this.disabled = false;
+            }
+        });
+        document.getElementById('input-valor-va').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && modoEdicaoVA) document.getElementById('btn-editar-va').click();
+        });
+
+        async function carregarValoresVTMenu() {
+            try {
+                const linhas = await dbListar('vt_valores');
+
+                linhas.forEach(reg => {
+                    const mat = normalizarMatricula(reg.matricula);
+                    if (!mat) return;
+                    mapeamentoVTGlobal[mat] = parseFloat(reg.valor_vt) || 0;
+                    nomesVTGlobal[mat] = reg.nome || "-";
+                    optanteVTGlobal[mat] = Number(reg.optante) === 1;
+                });
+
+                // Sempre desenha a tabela (cabecalho MATRICULA/NOME/OPTANTE/VALOR VT) e o lapis, mesmo sem linhas, pra dar pra cadastrar o primeiro optante; renderizarTabelaVT lida com mapa vazio.
+                renderizarTabelaVT();
+                document.getElementById('container-btn-edit-vt').style.display = 'flex';
+            } catch (e) {
+                console.error(e);
+                document.getElementById('menu-content-vt').innerHTML = "<p style='color:#e74c3c; padding:10px;'>Erro ao carregar dados. " + e.message + "</p>";
+            }
+        }
+
+        // Desenha a mini-tabela lateral dos custos de transporte. OPTANTE (selo verde/cinza) marca quem opta por receber VT, distinto de so estar cadastrado (optanteVTGlobal/coluna "optante" em vt_valores).
+        function renderizarTabelaVT() {
+            let colEx = modoExclusaoVisivelVT ? '<th style="width: 30px;">EXCLUIR</th>' : '';
+            // "VALOR VT (DIA)": deixa explicito que e o valor DIARIO (a tabela principal multiplica pelos dias trabalhados), pra ninguem digitar o mensal.
+            let html = `<table class="tabela-menu">
+                            <thead>
+                                <tr>${colEx}<th>MATRICULA</th><th>NOME</th><th>OPTANTE</th><th title="Valor diario do Vale Transporte - multiplicado pela quantidade de dias trabalhados no mes pra chegar no Total VT">VALOR VT (DIA)</th></tr>
+                            </thead>
+                            <tbody>`;
+
+            // escapeHtml (backend/filtro.js) em mat/nome: vem de planilha
+            // importada ou de campo editavel, sem isso um valor malicioso
+            // rodaria como HTML/JS ao ser inserido via innerHTML.
+            Object.keys(mapeamentoVTGlobal).forEach(mat => {
+                const valor = mapeamentoVTGlobal[mat];
+                const nome = nomesVTGlobal[mat] || "-";
+                const optante = optanteVTGlobal[mat] !== false;
+                const matSeguro = escapeHtml(mat);
+                const nomeSeguro = escapeHtml(nome);
+                let check = modoExclusaoVisivelVT ? `<td><input type="checkbox" class="check-excluir" value="${matSeguro}"></td>` : '';
+
+                if (modoEdicaoVT) {
+                    html += `<tr>${check}
+                        <td>
+                            <input type="hidden" class="in-mat-vt-old" value="${matSeguro}">
+                            <input type="text" class="input-edit-tabela in-mat-vt" value="${matSeguro}">
+                        </td>
+                        <td><input type="text" class="input-edit-tabela in-nome-vt" value="${nomeSeguro}"></td>
+                        <td style="text-align:center;"><input type="checkbox" class="in-optante-vt" ${optante ? 'checked' : ''}></td>
+                        <td><input type="text" class="input-edit-tabela in-valor-vt" value="${valor.toFixed(2).replace('.', ',')}"></td>
+                    </tr>`;
+                } else {
+                    html += `<tr>${check}
+                                <td>${matSeguro}</td>
+                                <td>${nomeSeguro}</td>
+                                <td style="text-align:center;"><span class="selo-optante ${optante ? 'selo-optante-sim' : 'selo-optante-nao'}">${optante ? 'SIM' : 'NAO'}</span></td>
+                                <td style="font-weight:bold;">${formatarMoeda(valor)}</td>
+                             </tr>`;
+                }
+            });
+
+            for (let i = 0; i < qtdLinhasNovasVT; i++) {
+                html += `<tr style="background:#fffde7">${modoExclusaoVisivelVT ? '<td>-</td>' : ''}
+                    <td><input type="text" class="input-edit-tabela in-mat-vt-new" placeholder="ID"></td>
+                    <td><input type="text" class="input-edit-tabela in-nome-vt-new" placeholder="Nome"></td>
+                    <td style="text-align:center;"><input type="checkbox" class="in-optante-vt-new" checked></td>
+                    <td><input type="text" class="input-edit-tabela in-valor-vt-new" placeholder="0,00"></td>
+                </tr>`;
+            }
+
+            // Nenhuma linha (nem cadastrada, nem sendo adicionada agora) -
+            // mostra uma dica dentro da propria tabela em vez de deixar o
+            // corpo vazio (some sozinha assim que a 1a linha e adicionada).
+            if (Object.keys(mapeamentoVTGlobal).length === 0 && qtdLinhasNovasVT === 0) {
+                const colspan = 4 + (modoExclusaoVisivelVT ? 1 : 0);
+                html += `<tr><td colspan="${colspan}" style="text-align:center; color:#999; font-weight:normal; padding:14px 9px;">Nenhum optante cadastrado ainda. Clique no lapis pra adicionar.</td></tr>`;
+            }
+
+            html += '</tbody></table>';
+            document.getElementById('menu-content-vt').innerHTML = html;
+        }
+
+        // Lógica de Ativação do estado Mestre do Menu de Edições
+        document.getElementById('btn-editar-vt').addEventListener('click', async function() {
+            if (!modoEdicaoVT) {
+                modoEdicaoVT = true;
+                this.innerHTML = "SALVAR";
+                this.style.backgroundColor = "#27ae60";
+                document.getElementById('btn-adicionar-vt').style.display = "flex";
+                document.getElementById('btn-remover-vt').style.display = "flex";
+                renderizarTabelaVT();
+            } else {
+
+                const matriculasParaRemover = [];
+                const registrosParaSalvar = [];
+
+                document.querySelectorAll('.check-excluir:checked').forEach(cb => {
+                    delete mapeamentoVTGlobal[cb.value];
+                    delete nomesVTGlobal[cb.value];
+                    delete optanteVTGlobal[cb.value];
+                    matriculasParaRemover.push(cb.value);
+                });
+
+                document.querySelectorAll('.in-mat-vt-old').forEach(inputMatOld => {
+                    const tr = inputMatOld.closest('tr');
+                    const oldMat = inputMatOld.value;
+                    const newMatInput = tr.querySelector('.in-mat-vt');
+                    const newMat = normalizarMatricula(newMatInput ? newMatInput.value : oldMat);
+                    const nome = tr.querySelector('.in-nome-vt').value.trim();
+                    const valorStr = tr.querySelector('.in-valor-vt').value.replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+                    const valor = parseFloat(valorStr) || 0;
+                    const optante = tr.querySelector('.in-optante-vt').checked;
+
+                    if (mapeamentoVTGlobal[oldMat] !== undefined) {
+                        if (newMat !== oldMat) {
+                            delete mapeamentoVTGlobal[oldMat];
+                            delete nomesVTGlobal[oldMat];
+                            delete optanteVTGlobal[oldMat];
+                            matriculasParaRemover.push(oldMat);
+                        }
+                        if (newMat) {
+                            nomesVTGlobal[newMat] = nome;
+                            mapeamentoVTGlobal[newMat] = valor;
+                            optanteVTGlobal[newMat] = optante;
+                            registrosParaSalvar.push({ matricula: newMat, nome, valor_vt: valor, optante: optante ? 1 : 0 });
+                        }
+                    }
+                });
+
+                document.querySelectorAll('.in-mat-vt-new').forEach(inputMat => {
+                    const mat = normalizarMatricula(inputMat.value);
+                    const tr = inputMat.closest('tr');
+                    const nome = tr.querySelector('.in-nome-vt-new').value.trim();
+                    const valorStr = tr.querySelector('.in-valor-vt-new').value.replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+                    const valor = parseFloat(valorStr) || 0;
+                    const optante = tr.querySelector('.in-optante-vt-new').checked;
+
+                    if (mat && nome) {
+                        mapeamentoVTGlobal[mat] = valor;
+                        optanteVTGlobal[mat] = optante;
+                        nomesVTGlobal[mat] = nome;
+                        registrosParaSalvar.push({ matricula: mat, nome, valor_vt: valor, optante: optante ? 1 : 0 });
+                    }
+                });
+
+                modoEdicaoVT = false;
+                modoExclusaoVisivelVT = false;
+                qtdLinhasNovasVT = 0;
+                this.innerHTML = "✎";
+                this.style.backgroundColor = "#e74c3c";
+
+                document.getElementById('btn-adicionar-vt').style.display = "none";
+                document.getElementById('btn-remover-vt').style.display = "none";
+
+                renderizarTabelaVT();
+                renderizarTabelaFinal();
+
+                try {
+                    if (matriculasParaRemover.length > 0) {
+                        await dbRemover('vt_valores', matriculasParaRemover);
+                    }
+                    // Em lote e dentro de uma transacao (vt_valores tem chave
+                    // textual, entao cada registro e um upsert por matricula).
+                    await dbSalvarLote('vt_valores', registrosParaSalvar);
+                } catch (e) {
+                    console.error("Erro ao salvar valores de VT:", e);
+                }
+            }
+        });
+
+        document.getElementById('btn-adicionar-vt').addEventListener('click', () => { 
+            qtdLinhasNovasVT++; 
+            renderizarTabelaVT(); 
+        });
+        
+        document.getElementById('btn-remover-vt').addEventListener('click', () => { 
+            modoExclusaoVisivelVT = !modoExclusaoVisivelVT; 
+            renderizarTabelaVT(); 
+        });
+
+        // ==========================================
+        // 4.5 MOTOR MATRIZ: LEITURA E INTEGRAÇÃO
+        // ==========================================
+        document.getElementById('input-excel').addEventListener('change', function(e) {
+            const file = e.target.files[0]; 
+            if (!file) return;
+            if (VALOR_VA_FIXO === null) {
+                mostrarToast('O valor do Vale Alimentação não foi carregado. Recarregue a página antes de importar.', '#e74c3c');
+                e.target.value = '';
+                return;
+            }
+            
+            const reader = new FileReader(); 
+            
+            reader.onload = function(evt) {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                // Os valores de VT vem so da tabela vt_valores (carregarValoresVTMenu, editados na gaveta lateral).
+                // Formato "Relatorio Detalhado": matricula na coluna C (row[2]), nome na B (row[1]), batida de ponto nas colunas J a M (row[9] a row[12]).
+                // "Tem ponto" checa a PRIMEIRA (J) e a ULTIMA (M): o colaborador so entra se tiver entrada e saida no dia.
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
+                const processados = {};
+
+                rows.slice(1).forEach(row => {
+                    const mat = normalizarMatricula(row[2]);
+                    const temPonto = (String(row[9]).trim() !== "" &&
+                                      String(row[12]).trim() !== "" &&
+                                      String(row[9]) !== "00:00:00");
+
+                    if (mat && temPonto) {
+                        if (!processados[mat]) {
+                            processados[mat] = {
+                                nome: String(row[1] || "").trim(),
+                                qtdVA: 0,
+                                qtdVT: 0, 
+                                unitVA_manual: null, 
+                                unitVT_manual: null, 
+                                obs: "" 
+                            };
+                        }
+                        processados[mat].qtdVA++; 
+                        processados[mat].qtdVT++;
+                    }
+                });
+                
+                dadosColaboradoresGlobal = processados;
+                
+                modoEdicaoTabela = false;
+                modoExclusaoVisivel = false;
+                qtdLinhasNovas = 0;
+                
+                let btnEdit = document.getElementById('btn-editar-tabela');
+                btnEdit.innerHTML = "✎"; 
+                btnEdit.style.backgroundColor = "#e74c3c";
+                
+                document.getElementById('btn-adicionar-linha').style.display = "none";
+                document.getElementById('btn-remover-linha').style.display = "none";
+                document.getElementById('container-btn-edit-tabela').style.display = 'flex';
+
+                renderizarTabelaFinal();
+                adicionarNotificacaoUpload("Planilha de Ponto processada com sucesso!", "#2980b9"); 
+            };
+            
+            reader.readAsArrayBuffer(file);
+            e.target.value = ''; 
+        });
+
+        // ==========================================
+        // 4.6 GATILHOS DA MATRIZ PRINCIPAL INTERATIVA 
+        // ==========================================
+        document.getElementById('btn-editar-tabela').addEventListener('click', function() {
+            if (!modoEdicaoTabela) {
+                modoEdicaoTabela = true; 
+                this.innerHTML = "SALVAR"; 
+                this.style.backgroundColor = "#27ae60";
+                
+                document.getElementById('btn-adicionar-linha').style.display = "flex";
+                document.getElementById('btn-remover-linha').style.display = "flex";
+                
+                renderizarTabelaFinal();
+            } else {
+                
+                document.querySelectorAll('.check-excluir:checked').forEach(cb => { 
+                    delete dadosColaboradoresGlobal[cb.value]; 
+                });
+                
+                document.querySelectorAll('.row-temp-add').forEach(tr => {
+                    const mat = normalizarMatricula(tr.querySelector('.in-mat').value);
+                    const nome = tr.querySelector('.in-nome').value.trim();
+                    
+                    if (mat && nome) {
+                        dadosColaboradoresGlobal[mat] = {
+                            nome: nome,
+                            qtdVA: parseInt(tr.querySelector('.in-qva').value) || 0,
+                            qtdVT: parseInt(tr.querySelector('.in-qvt').value) || 0,
+                            unitVA_manual: tr.querySelector('.in-uva').value !== "" ? parseFloat(tr.querySelector('.in-uva').value.replace(',', '.')) : null,
+                            unitVT_manual: tr.querySelector('.in-uvt').value !== "" ? parseFloat(tr.querySelector('.in-uvt').value.replace(',', '.')) : null,
+                            obs: tr.querySelector('.in-obs').value || ""
+                        };
+                    }
+                });
+                
+                modoEdicaoTabela = false; 
+                modoExclusaoVisivel = false; 
+                qtdLinhasNovas = 0;
+                this.innerHTML = "✎"; 
+                this.style.backgroundColor = "#e74c3c";
+                
+                document.getElementById('btn-adicionar-linha').style.display = "none";
+                document.getElementById('btn-remover-linha').style.display = "none";
+                
+                renderizarTabelaFinal();
+            }
+        });
+
+        document.getElementById('btn-adicionar-linha').addEventListener('click', () => { 
+            qtdLinhasNovas++; 
+            renderizarTabelaFinal(); 
+        });
+        
+        document.getElementById('btn-remover-linha').addEventListener('click', () => { 
+            modoExclusaoVisivel = !modoExclusaoVisivel; 
+            renderizarTabelaFinal(); 
+        });
+
+        // UNICO lugar que calcula o Vale Alimentacao/Transporte de um colaborador: usado pela tabela (renderizarTabelaFinal), pelo recalculo (recalcular) e pela planilha exportada/enviada por e-mail (gerarWorkbookPronto), pra nao divergirem.
+        // Unitario: o digitado na linha (modo de edicao) vence; sem ele, vale
+        // o padrao - VALOR_VA_FIXO pro VA, a tabela de optantes pro VT.
+        function valoresBeneficio(mat) {
+            const it = dadosColaboradoresGlobal[mat];
+            const uVA = it.unitVA_manual !== null ? it.unitVA_manual : VALOR_VA_FIXO;
+            const uVT = it.unitVT_manual !== null ? it.unitVT_manual : (mapeamentoVTGlobal[mat] || 0);
+            return { uVA, uVT, totalVA: it.qtdVA * uVA, totalVT: it.qtdVT * uVT };
+        }
+
+        function recalcular(input, mat, tipo) {
+            const bruto = input.value !== undefined ? input.value : input.innerText;
+            const val = bruto.replace(',', '.');
+            const it = dadosColaboradoresGlobal[mat];
+            
+            if (tipo === 'QVA') it.qtdVA = parseInt(val) || 0;
+            else if (tipo === 'QVT') it.qtdVT = parseInt(val) || 0;
+            else if (tipo === 'UVA') it.unitVA_manual = val === "" ? null : parseFloat(val);
+            else if (tipo === 'UVT') it.unitVT_manual = val === "" ? null : parseFloat(val);
+            
+            const tr = input.closest('tr');
+            
+            const { totalVA, totalVT } = valoresBeneficio(mat);
+            
+            tr.querySelector('.total-va').innerText = formatarMoeda(totalVA);
+            tr.querySelector('.total-vt').innerText = formatarMoeda(totalVT);
+        }
+
+        function salvarObs(mat, v) { 
+            if (dadosColaboradoresGlobal[mat]) {
+                dadosColaboradoresGlobal[mat].obs = v; 
+            }
+        }
+        
+        // ==========================================
+        // 4.7 EXPORTADOR AVANÇADO 
+        // ==========================================
+        async function gerarWorkbookPronto() {
+            // Constroi a planilha em codigo (sem arquivo-modelo externo), replicando o relatorio da tela (renderizarTabelaFinal): titulo, 3 linhas de info e a tabela MATRICULA/FUNCIONARIOS/VALE ALIMENTACAO/VALE TRANSPORTE/OBS.
+            const wb = XLSX.utils.book_new();
+
+            const mesRef = document.getElementById('info-mes').innerText;
+            const dataPagto = document.getElementById('info-pagamento').innerText;
+
+            const cabecalho = [
+                ["RELATORIO DE PAGAMENTO INTERMITENTES", "", "", "", "", "", "", "", ""],
+                [mesRef, "", "", "", "", "", "", "", ""],
+                ["Frente de servico: INTERMITENTES", "", "", "", "", "", "", "", ""],
+                [dataPagto, "", "", "", "", "", "", "", ""],
+                ["", "", "", "", "", "", "", "", ""],
+                ["MATRICULA", "FUNCIONARIOS", "VALE ALIMENTACAO", "", "", "VALE TRANSPORTE", "", "", "OBS"],
+                ["", "", "Quant.", "Unit.", "Total", "Quant.", "Unit.", "Total", ""],
+            ];
+            const ws = XLSX.utils.aoa_to_sheet(cabecalho);
+            XLSX.utils.book_append_sheet(wb, ws, "Pagamento");
+
+            // Mescla as celulas do cabecalho como no relatorio da tela: titulo/info na largura toda; MATRICULA/FUNCIONARIOS/OBS nas duas linhas do cabecalho; VALE ALIMENTACAO/VALE TRANSPORTE sobre seus 3 sub-titulos (Quant./Unit./Total).
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }, // titulo
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }, // mes referente
+                { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } }, // frente de servico
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 8 } }, // data de pagamento
+                { s: { r: 5, c: 0 }, e: { r: 6, c: 0 } }, // MATRICULA
+                { s: { r: 5, c: 1 }, e: { r: 6, c: 1 } }, // FUNCIONARIOS
+                { s: { r: 5, c: 2 }, e: { r: 5, c: 4 } }, // VALE ALIMENTACAO
+                { s: { r: 5, c: 5 }, e: { r: 5, c: 7 } }, // VALE TRANSPORTE
+                { s: { r: 5, c: 8 }, e: { r: 6, c: 8 } }, // OBS
+            ];
+
+            // Largura das colunas - sem isso o Excel usa a largura padrao
+            // (estreita demais pros nomes e deixa o titulo cortado)
+            ws['!cols'] = [
+                { wch: 12 }, { wch: 35 }, { wch: 9 }, { wch: 9 }, { wch: 11 },
+                { wch: 9 }, { wch: 9 }, { wch: 11 }, { wch: 22 },
+            ];
+
+            for (let r = 0; r <= 6; r++) {
+                for (let c = 0; c <= 8; c++) {
+                    let cellRef = XLSX.utils.encode_cell({r: r, c: c});
+
+                    if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
+                    if (!ws[cellRef].s) ws[cellRef].s = {};
+                    if (!ws[cellRef].s.font) ws[cellRef].s.font = {};
+
+                    ws[cellRef].s.font.bold = true;
+
+                    if (r === 0) {
+                        ws[cellRef].s.font.sz = 16;
+                    }
+
+                    if (r <= 3) {
+                        ws[cellRef].s.alignment = { horizontal: "center", vertical: "center" };
+                    }
+
+                    if (r <= 4) {
+                        ws[cellRef].s.fill = { fgColor: { rgb: "FFFFFF" } };
+                        if (ws[cellRef].s.border) delete ws[cellRef].s.border;
+                    }
+
+                    if (r === 5 || r === 6) {
+                        // Mesmo verde-agua do cabecalho da tabela na tela.
+                        ws[cellRef].s.fill = { fgColor: { rgb: "339183" } };
+                        ws[cellRef].s.font.color = { rgb: "FFFFFF" };
+                        ws[cellRef].s.border = {
+                            top: { style: "thin", color: { rgb: "000000" } },
+                            bottom: { style: "thin", color: { rgb: "000000" } },
+                            left: { style: "thin", color: { rgb: "000000" } },
+                            right: { style: "thin", color: { rgb: "000000" } }
+                        };
+                        ws[cellRef].s.alignment = { horizontal: "center", vertical: "center" };
+                    }
+                }
+            }
+
+            const startRow = 7;
+            let R = startRow;
+            Object.keys(dadosColaboradoresGlobal).forEach(mat => {
+                const it = dadosColaboradoresGlobal[mat];
+                const { uVA, uVT, totalVA, totalVT } = valoresBeneficio(mat);
+                
+                const linhaDados = [
+                    mat,              
+                    it.nome,          
+                    it.qtdVA,         
+                    uVA,              
+                    totalVA, 
+                    it.qtdVT,         
+                    uVT,              
+                    totalVT, 
+                    it.obs || ""      
+                ];
+
+                linhaDados.forEach((valor, indexColuna) => {
+                    const cellRef = XLSX.utils.encode_cell({r: R, c: indexColuna});
+                    let cellObj = { s: {} }; 
+                    
+                    if (typeof valor === 'number') {
+                        cellObj.t = 'n';
+                        cellObj.v = valor;
+                    } else {
+                        cellObj.t = 's';
+                        cellObj.v = String(valor);
+                    }
+
+                    cellObj.s.border = {
+                        top: { style: "thin", color: { rgb: "000000" } },
+                        bottom: { style: "thin", color: { rgb: "000000" } },
+                        left: { style: "thin", color: { rgb: "000000" } },
+                        right: { style: "thin", color: { rgb: "000000" } }
+                    };
+
+                    if (indexColuna >= 2 && indexColuna <= 7) {
+                        cellObj.s.alignment = { horizontal: "center", vertical: "center" };
+                    }
+
+                    if ([3, 4, 6, 7].includes(indexColuna)) {
+                        cellObj.s.numFmt = '"R$ "#,##0.00'; 
+                    }
+
+                    ws[cellRef] = cellObj;
+                });
+                R++; 
+            });
+
+            for (let c = 0; c <= 8; c++) {
+                let cellRef = XLSX.utils.encode_cell({r: R, c: c});
+                ws[cellRef] = {
+                    t: 's', 
+                    v: '',
+                    s: {
+                        border: {
+                            top: { style: "thin", color: { rgb: "000000" } },
+                            bottom: { style: "thin", color: { rgb: "000000" } },
+                            left: { style: "thin", color: { rgb: "000000" } },
+                            right: { style: "thin", color: { rgb: "000000" } }
+                        }
+                    }
+                };
+            }
+            R++;
+
+            const range = XLSX.utils.decode_range(ws['!ref'] || "A1:I100");
+            range.e.r = Math.max(range.e.r, R - 1); 
+            ws['!ref'] = XLSX.utils.encode_range(range);
+
+            return wb; 
+        }
+
+        // Exportar e enviar por e-mail so fazem sentido com pelo menos 1 colaborador na tabela (o e-mail e de verdade, pro financeiro).
+        function temColaboradoresParaEnviar() {
+            if (Object.keys(dadosColaboradoresGlobal).length > 0) return true;
+            mostrarToast('Não há nenhum colaborador na tabela. Importe a planilha antes.', '#e74c3c');
+            return false;
+        }
+
+        async function exportarTabelaExcel() {
+            if (!temColaboradoresParaEnviar()) return;
+            if (!confirm("Tem certeza que deseja exportar a planilha?")) return;
+            const btn = document.getElementById('btn-exportar-planilha');
+            const textoOriginal = btn.innerHTML; 
+            
+            btn.innerHTML = "<span>PROCESSANDO...</span>";
+            btn.disabled = true;
+
+            try {
+                const wb = await gerarWorkbookPronto();
+                XLSX.writeFile(wb, `Solicitacao_Pagamento.xlsx`, { bookType: 'xlsx' });
+                adicionarNotificacaoUpload("Ficheiro exportado com sucesso.", "#f39c12");
+            } catch (err) {
+                console.error(err);
+                // Mostra o motivo real (err.message) em vez de um texto fixo.
+                adicionarNotificacaoUpload("Erro ao exportar a planilha: " + err.message, "#e74c3c");
+            } finally {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+            }
+        }
+        
+        // ==========================================
+        // 4.8 ENVIO DE E-MAIL (SMTP real via PHPMailer, backend/api/enviar-email-intermitente.php): a planilha vai anexada, sempre pra beneficios@empresa.com.br (regra fixa, decidida no servidor).
+        // ==========================================
+        document.getElementById('btn-enviar-email').addEventListener('click', async function() {
+            if (!temColaboradoresParaEnviar()) return;
+            // Envio real e sem volta - mesma pergunta que o Exportar ja fazia.
+            if (!confirm("Enviar a planilha por e-mail para beneficios@empresa.com.br?")) return;
+            const btn = this;
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = "⏳";
+            btn.disabled = true;
+
+            try {
+                const wb = await gerarWorkbookPronto();
+
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+                const formData = new FormData();
+                formData.append('planilha', blob, 'relatorio_pagamento_intermitentes.xlsx');
+                formData.append('mes_referencia', document.getElementById('info-mes').innerText || '');
+                formData.append('data_pagamento', document.getElementById('info-pagamento').innerText || '');
+
+                const response = await fetch('../backend/api/enviar-email-intermitente.php', {
+                    method: 'POST',
+                    headers: { 'X-Session-Token': tokenSessaoAtual() },
+                    body: formData
+                });
+
+                const resultado = await response.json();
+
+                if (response.ok && resultado.success) {
+                    adicionarNotificacaoUpload("E-mail enviado para beneficios@empresa.com.br com sucesso!", "#2ecc71");
+                } else {
+                    adicionarNotificacaoUpload('Falha ao enviar o email: \n\n' + (resultado.error || 'Erro desconhecido'), "#e74c3c");
+                }
+
+            } catch (err) {
+                console.error(err);
+                adicionarNotificacaoUpload("Erro interno ou na rede: " + err.message, "#e74c3c");
+            } finally {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+            }
+        });
+
+        // ==========================================
+        // 4.9 CONSTRUTOR HTML DA TABELA
+        // ==========================================
+        // Extraido de renderizarTabelaFinal(): o cabecalho verde de 2 linhas fica visivel desde o carregamento, como no PFM.
+        function renderizarCabecalhoTabela() {
+            const thead = document.getElementById('table-header');
+            let colEx = modoExclusaoVisivel ? '<th rowspan="2">EXCLUIR</th>' : '';
+
+            thead.innerHTML = `
+                <tr>
+                    ${colEx}
+                    <th rowspan="2">MATRICULA</th>
+                    <th rowspan="2">FUNCIONARIOS</th>
+                    <th colspan="3">VALE ALIMENTACAO</th>
+                    <th colspan="3">VALE TRANSPORTE</th>
+                    <th rowspan="2">OBS</th>
+                </tr>
+                <tr>
+                    <th>Quant.</th>
+                    <th>Unit.</th>
+                    <th>Total</th>
+                    <th>Quant.</th>
+                    <th>Unit.</th>
+                    <th>Total</th>
+                </tr>
+            `;
+
+            sincronizarColgroupIntermitente();
+        }
+
+        // Larguras das 9 colunas fisicas (MATRICULA/FUNCIONARIOS/QVA/UVA/TOTAL-VA/QVT/UVT/TOTAL-VT/OBS), mais EXCLUIR na frente no modo de exclusao.
+        // Usa <colgroup> (nao width no th/td) porque o cabecalho tem colspan e os <th> da 1a linha nao correspondem 1-pra-1 aos <td> (como coberturas/solicitacao.html na coluna PERIODO). Aplicada nas 2 tabelas.
+        const LARGURAS_COLS_INTERMITENTE = ['9%', '20%', '7%', '10%', '11%', '7%', '10%', '11%', '15%'];
+        function sincronizarColgroupIntermitente() {
+            const larguras = modoExclusaoVisivel ? ['6%', ...LARGURAS_COLS_INTERMITENTE] : LARGURAS_COLS_INTERMITENTE;
+            const html = larguras.map(w => `<col style="width:${w}">`).join('');
+            const colCabecalho = document.getElementById('colgroup-cabecalho-int');
+            const colCorpo = document.getElementById('colgroup-corpo-int');
+            if (colCabecalho) colCabecalho.innerHTML = html;
+            if (colCorpo) colCorpo.innerHTML = html;
+        }
+
+        function renderizarTabelaFinal() {
+            const tbody = document.getElementById('table-body');
+            renderizarCabecalhoTabela();
+
+            document.getElementById('cabecalho-resultado').style.display = 'block';
+
+            let html = Object.keys(dadosColaboradoresGlobal).map(mat => {
+                const it = dadosColaboradoresGlobal[mat];
+                const { uVA, uVT, totalVA, totalVT } = valoresBeneficio(mat);
+                
+                let check = modoExclusaoVisivel ? `<td><input type="checkbox" class="check-excluir" value="${mat}"></td>` : '';
+                
+                // escapeHtml (backend/filtro.js) em nome/obs: vem de planilha
+                // importada ou de campo editavel (obs), sem isso um valor
+                // malicioso rodaria como HTML/JS ao ser inserido via innerHTML.
+                return `<tr>
+                ${check}
+                <td>${mat}</td>
+                <td class="col-nome">${escapeHtml(it.nome)}</td>
+
+                    <td ${modoEdicaoTabela ? `contenteditable="true" class="td-editavel" oninput="recalcular(this,'${mat}','QVA')"` : ''}>${it.qtdVA}</td>
+                    <td ${modoEdicaoTabela ? `contenteditable="true" class="td-editavel" oninput="recalcular(this,'${mat}','UVA')"` : ''}>${modoEdicaoTabela ? uVA.toFixed(2).replace('.', ',') : formatarMoeda(uVA)}</td>
+                    <td class="col-total total-va">${formatarMoeda(totalVA)}</td>
+
+                    <td ${modoEdicaoTabela ? `contenteditable="true" class="td-editavel" oninput="recalcular(this,'${mat}','QVT')"` : ''}>${it.qtdVT}</td>
+                    <td ${modoEdicaoTabela ? `contenteditable="true" class="td-editavel" oninput="recalcular(this,'${mat}','UVT')"` : ''}>${modoEdicaoTabela ? uVT.toFixed(2).replace('.', ',') : formatarMoeda(uVT)}</td>
+                    <td class="col-total total-vt">${formatarMoeda(totalVT)}</td>
+
+                    <td><input type="text" class="input-obs" value="${escapeHtml(it.obs || '')}" oninput="salvarObs('${mat}',this.value)"></td>
+                </tr>`;
+            }).join('');
+
+            for (let i = 0; i < qtdLinhasNovas; i++) {
+                html += `<tr class="row-temp-add" style="background:#fffde7">
+                    ${modoExclusaoVisivel ? '<td>-</td>' : ''}
+                    <td><input type="text" class="input-edit-tabela in-mat" placeholder="ID"></td>
+                    <td><input type="text" class="input-edit-tabela in-nome" placeholder="Nome"></td>
+                    
+                    <td><input type="number" class="input-edit-tabela in-qva" value="0"></td>
+                    <td><input type="text" class="input-edit-tabela in-uva" value="${formatarValorVa(VALOR_VA_FIXO)}"></td>
+                    <td class="total-va">R$ 0,00</td>
+                    
+                    <td><input type="number" class="input-edit-tabela in-qvt" value="0"></td>
+                    <td><input type="text" class="input-edit-tabela in-uvt" placeholder="R$"></td>
+                    <td class="total-vt">R$ 0,00</td>
+                    
+                    <td><input type="text" class="input-obs in-obs"></td>
+                </tr>`;
+            }
+            tbody.innerHTML = html;
+
+            const hoje = new Date();
+            const mesNome = hoje.toLocaleString('pt-BR', {month:'long'}).toUpperCase();
+            document.getElementById('info-mes').innerText = `Mês referente: ${mesNome} de ${hoje.getFullYear()}`;
+
+            aplicarDataPagamentoNaTela();
+        }
+
+        // "Data de pagamento" (cabecalho do relatorio), clicavel pra editar. Sem edicao manual e hoje + 3 dias; editada, dataPagamentoManual prevalece nas renderizacoes seguintes ate recarregar.
+        function aplicarDataPagamentoNaTela() {
+            let pagto;
+            if (dataPagamentoManual) {
+                pagto = new Date(dataPagamentoManual + 'T00:00:00');
+            } else {
+                pagto = new Date();
+                pagto.setDate(pagto.getDate() + 3);
+            }
+            document.getElementById('info-pagamento').innerText = `Data de pagamento: ${pagto.toLocaleDateString('pt-BR')}`;
+        }
+
+        // Troca o texto por um <input type="date"> na hora do clique - mesmo
+        // valor (manual ja escolhido, ou o hoje+3 calculado) pre-preenchido,
+        // pra editar em cima do que ja esta mostrado, nao do zero.
+        function editarDataPagamento() {
+            const el = document.getElementById('info-pagamento');
+            if (el.querySelector('input')) return; // ja em edicao
+
+            let valorAtualIso;
+            if (dataPagamentoManual) {
+                valorAtualIso = dataPagamentoManual;
+            } else {
+                const pagto = new Date();
+                pagto.setDate(pagto.getDate() + 3);
+                valorAtualIso = pagto.toISOString().slice(0, 10);
+            }
+
+            el.innerHTML = `Data de pagamento: <input type="date" id="input-data-pagamento" onclick="event.stopPropagation()" value="${valorAtualIso}">`;
+            const input = document.getElementById('input-data-pagamento');
+            input.onblur = confirmarDataPagamento;
+            input.onkeydown = (e) => { if (e.key === 'Enter') input.blur(); };
+            input.focus();
+        }
+
+        function confirmarDataPagamento() {
+            const input = document.getElementById('input-data-pagamento');
+            if (!input) return;
+            if (input.value) dataPagamentoManual = input.value;
+            aplicarDataPagamentoNaTela();
+        }
+        
+        // ==========================================
+        // ESCUTADOR DE EVENTOS EM TEMPO REAL
+        // ==========================================
+        window.addEventListener('storage', function(e) {
+            
+            if (e.key === 'notificacoes_sistema') {
+                
+                const oldAlertas = e.oldValue ? JSON.parse(e.oldValue) : [];
+                const newAlertas = e.newValue ? JSON.parse(e.newValue) : [];
+                
+                renderizarNotificacoes();
+                
+                if (newAlertas.length > 0) {
+                    
+                    const novosAlertas = newAlertas.filter(a => {
+                        return !oldAlertas.some(old => old.msg === a.msg && old.dataBr === a.dataBr);
+                    });
+                    
+                    novosAlertas.forEach(novo => {
+                        mostrarToast(novo.msg, '#e74c3c');
+                    });
+                    
+                }
+            }
+        });
+    </script>
+</body>
+</html>
